@@ -87,10 +87,14 @@ CREATE POLICY "routines_insert_own" ON public.routines
     FOR INSERT
     WITH CHECK (
         auth.uid() = user_id AND
-        EXISTS (
+        (social_account_id IS NULL OR EXISTS (
             SELECT 1 FROM public.social_accounts 
             WHERE id = social_account_id AND user_id = auth.uid()
-        )
+        )) AND
+        (proxy_id IS NULL OR EXISTS (
+            SELECT 1 FROM public.proxies 
+            WHERE id = proxy_id AND user_id = auth.uid()
+        ))
     );
 
 -- Política para UPDATE - usuários podem atualizar apenas suas próprias rotinas
@@ -99,10 +103,14 @@ CREATE POLICY "routines_update_own" ON public.routines
     USING (auth.uid() = user_id)
     WITH CHECK (
         auth.uid() = user_id AND
-        EXISTS (
+        (social_account_id IS NULL OR EXISTS (
             SELECT 1 FROM public.social_accounts 
             WHERE id = social_account_id AND user_id = auth.uid()
-        )
+        )) AND
+        (proxy_id IS NULL OR EXISTS (
+            SELECT 1 FROM public.proxies 
+            WHERE id = proxy_id AND user_id = auth.uid()
+        ))
     );
 
 -- Política para DELETE - usuários podem deletar apenas suas próprias rotinas
@@ -232,7 +240,9 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Índices para otimizar consultas com RLS
 CREATE INDEX IF NOT EXISTS idx_social_accounts_user_id_type ON public.social_accounts(user_id, type);
+CREATE INDEX IF NOT EXISTS idx_social_accounts_user_id_status ON public.social_accounts(user_id, status);
 CREATE INDEX IF NOT EXISTS idx_routines_user_id_status ON public.routines(user_id, status);
+CREATE INDEX IF NOT EXISTS idx_routines_proxy_id_status ON public.routines(proxy_id, status);
 CREATE INDEX IF NOT EXISTS idx_proxies_user_id_status ON public.proxies(user_id, status);
 CREATE INDEX IF NOT EXISTS idx_execution_logs_user_id_created_at ON public.execution_logs(user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_execution_logs_routine_id ON public.execution_logs(routine_id);
@@ -269,7 +279,7 @@ CREATE TRIGGER audit_routines
 
 COMMENT ON POLICY "profiles_select_own" ON public.profiles IS 'Usuários podem visualizar apenas seu próprio perfil';
 COMMENT ON POLICY "social_accounts_insert_own" ON public.social_accounts IS 'Usuários podem criar contas sociais apenas para si mesmos';
-COMMENT ON POLICY "routines_insert_own" ON public.routines IS 'Usuários podem criar rotinas apenas para suas próprias contas sociais';
+COMMENT ON POLICY "routines_insert_own" ON public.routines IS 'Usuários podem criar rotinas apenas para suas próprias contas sociais e proxies';
 COMMENT ON POLICY "proxies_delete_own" ON public.proxies IS 'Usuários podem deletar proxies apenas se não estiverem em uso por rotinas ativas';
 COMMENT ON POLICY "execution_logs_delete_old" ON public.execution_logs IS 'Usuários podem deletar apenas logs com mais de 90 dias';
 

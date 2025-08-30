@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
 -- 2. Tabela de contas sociais (social_accounts)
 -- Armazena credenciais e metadados das contas de redes sociais
 CREATE TYPE social_account_type AS ENUM ('instagram', 'whatsapp', 'facebook');
+CREATE TYPE account_status AS ENUM ('active', 'inactive', 'paused');
 
 CREATE TABLE IF NOT EXISTS public.social_accounts (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -23,6 +24,7 @@ CREATE TABLE IF NOT EXISTS public.social_accounts (
   display_name TEXT,
   session_data JSONB DEFAULT '{}',
   is_active BOOLEAN DEFAULT true,
+  status account_status DEFAULT 'active',
   last_login TIMESTAMP WITH TIME ZONE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -32,6 +34,7 @@ CREATE TABLE IF NOT EXISTS public.social_accounts (
 -- 3. Tabela de rotinas (routines)
 -- Armazena as rotinas de automação dos usuários
 CREATE TYPE trigger_type AS ENUM ('cron', 'manual', 'event');
+CREATE TYPE routine_status AS ENUM ('active', 'inactive', 'paused');
 
 CREATE TABLE IF NOT EXISTS public.routines (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -42,6 +45,9 @@ CREATE TABLE IF NOT EXISTS public.routines (
   trigger_config JSONB DEFAULT '{}', -- Para configurações de cron, eventos, etc.
   actions JSONB NOT NULL DEFAULT '[]', -- Array de ações a serem executadas
   is_active BOOLEAN DEFAULT true,
+  status routine_status DEFAULT 'active',
+  social_account_id UUID REFERENCES public.social_accounts(id) ON DELETE SET NULL,
+  proxy_id UUID REFERENCES public.proxies(id) ON DELETE SET NULL,
   last_executed TIMESTAMP WITH TIME ZONE,
   next_execution TIMESTAMP WITH TIME ZONE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -50,6 +56,8 @@ CREATE TABLE IF NOT EXISTS public.routines (
 
 -- 4. Tabela de proxies (proxies)
 -- Armazena os proxies dos usuários para automação
+CREATE TYPE proxy_status AS ENUM ('active', 'inactive', 'error');
+
 CREATE TABLE IF NOT EXISTS public.proxies (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
@@ -60,6 +68,7 @@ CREATE TABLE IF NOT EXISTS public.proxies (
   password TEXT,
   proxy_type TEXT DEFAULT 'http', -- http, https, socks5
   is_active BOOLEAN DEFAULT true,
+  status proxy_status DEFAULT 'inactive',
   last_tested TIMESTAMP WITH TIME ZONE,
   response_time INTEGER, -- em ms
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -82,70 +91,14 @@ CREATE TABLE IF NOT EXISTS public.execution_logs (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- POLÍTICAS RLS (Row Level Security)
+-- HABILITAR RLS (Row Level Security)
+-- As políticas RLS específicas serão definidas em supabase_rls_policies.sql
 
--- Habilitar RLS em todas as tabelas
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.social_accounts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.routines ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.proxies ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.execution_logs ENABLE ROW LEVEL SECURITY;
-
--- Políticas para a tabela profiles
-CREATE POLICY "Users can view own profile" ON public.profiles
-  FOR SELECT USING (auth.uid() = id);
-
-CREATE POLICY "Users can update own profile" ON public.profiles
-  FOR UPDATE USING (auth.uid() = id);
-
-CREATE POLICY "Users can insert own profile" ON public.profiles
-  FOR INSERT WITH CHECK (auth.uid() = id);
-
--- Políticas para a tabela social_accounts
-CREATE POLICY "Users can view own social accounts" ON public.social_accounts
-  FOR SELECT USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can insert own social accounts" ON public.social_accounts
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
-
-CREATE POLICY "Users can update own social accounts" ON public.social_accounts
-  FOR UPDATE USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can delete own social accounts" ON public.social_accounts
-  FOR DELETE USING (auth.uid() = user_id);
-
--- Políticas para a tabela routines
-CREATE POLICY "Users can view own routines" ON public.routines
-  FOR SELECT USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can insert own routines" ON public.routines
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
-
-CREATE POLICY "Users can update own routines" ON public.routines
-  FOR UPDATE USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can delete own routines" ON public.routines
-  FOR DELETE USING (auth.uid() = user_id);
-
--- Políticas para a tabela proxies
-CREATE POLICY "Users can view own proxies" ON public.proxies
-  FOR SELECT USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can insert own proxies" ON public.proxies
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
-
-CREATE POLICY "Users can update own proxies" ON public.proxies
-  FOR UPDATE USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can delete own proxies" ON public.proxies
-  FOR DELETE USING (auth.uid() = user_id);
-
--- Políticas para a tabela execution_logs
-CREATE POLICY "Users can view own execution logs" ON public.execution_logs
-  FOR SELECT USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can insert own execution logs" ON public.execution_logs
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
 
 -- TRIGGERS para updated_at
 
@@ -189,10 +142,16 @@ CREATE TRIGGER on_auth_user_created
 -- ÍNDICES para melhor performance
 CREATE INDEX IF NOT EXISTS idx_social_accounts_user_id ON public.social_accounts(user_id);
 CREATE INDEX IF NOT EXISTS idx_social_accounts_type ON public.social_accounts(type);
+CREATE INDEX IF NOT EXISTS idx_social_accounts_status ON public.social_accounts(status);
 CREATE INDEX IF NOT EXISTS idx_routines_user_id ON public.routines(user_id);
 CREATE INDEX IF NOT EXISTS idx_routines_is_active ON public.routines(is_active);
+CREATE INDEX IF NOT EXISTS idx_routines_status ON public.routines(status);
+CREATE INDEX IF NOT EXISTS idx_routines_social_account_id ON public.routines(social_account_id);
+CREATE INDEX IF NOT EXISTS idx_routines_proxy_id ON public.routines(proxy_id);
 CREATE INDEX IF NOT EXISTS idx_proxies_user_id ON public.proxies(user_id);
 CREATE INDEX IF NOT EXISTS idx_proxies_is_active ON public.proxies(is_active);
+CREATE INDEX IF NOT EXISTS idx_proxies_status ON public.proxies(status);
 CREATE INDEX IF NOT EXISTS idx_execution_logs_user_id ON public.execution_logs(user_id);
 CREATE INDEX IF NOT EXISTS idx_execution_logs_routine_id ON public.execution_logs(routine_id);
 CREATE INDEX IF NOT EXISTS idx_execution_logs_status ON public.execution_logs(status);
+CREATE INDEX IF NOT EXISTS idx_execution_logs_social_account_id ON public.execution_logs(social_account_id);

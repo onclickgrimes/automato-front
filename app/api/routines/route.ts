@@ -1,5 +1,4 @@
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
-import { cookies } from 'next/headers'
+import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 
 type TriggerType = 'schedule' | 'webhook' | 'manual'
@@ -7,7 +6,7 @@ type RoutineStatus = 'active' | 'inactive' | 'paused'
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createRouteHandlerClient({ cookies })
+    const supabase = await createClient()
     const { searchParams } = new URL(request.url)
     const status = searchParams.get('status') as RoutineStatus
     const socialAccountId = searchParams.get('social_account_id')
@@ -105,7 +104,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createRouteHandlerClient({ cookies })
+    const supabase = await createClient()
     
     // Verificar se o usuário está autenticado
     const { data: { session }, error: sessionError } = await supabase.auth.getSession()
