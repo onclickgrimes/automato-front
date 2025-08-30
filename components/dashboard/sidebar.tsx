@@ -80,6 +80,9 @@ export function DashboardSidebar({
 
   // Fechar sidebar mobile ao pressionar ESC
   useEffect(() => {
+    // Verificar se estamos no cliente antes de acessar document
+    if (typeof window === 'undefined') return
+    
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && isMobileOpen && setIsMobileOpen) {
         setIsMobileOpen(false)
