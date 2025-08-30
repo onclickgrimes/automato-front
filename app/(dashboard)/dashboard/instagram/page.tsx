@@ -1,266 +1,130 @@
 "use client"
 
-import { useState } from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { 
-  Instagram, 
-  Plus, 
-  Settings, 
-  Play, 
-  Pause, 
-  Trash2, 
-  Users, 
-  Heart, 
-  MessageCircle,
-  Eye,
-  Search
-} from 'lucide-react'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-
-// Função para formatação consistente de números
-const formatNumber = (num: number): string => {
-  return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",")
-}
-
-const instagramAccounts = [
-  {
-    id: 1,
-    username: '@empresa_exemplo',
-    profileImage: '',
-    followers: 15420,
-    following: 890,
-    posts: 234,
-    status: 'active',
-    lastActivity: '2 min atrás'
-  },
-  {
-    id: 2,
-    username: '@loja_virtual',
-    profileImage: '',
-    followers: 8930,
-    following: 1200,
-    posts: 156,
-    status: 'paused',
-    lastActivity: '1 hora atrás'
-  },
-  {
-    id: 3,
-    username: '@influencer_tech',
-    profileImage: '',
-    followers: 45600,
-    following: 2100,
-    posts: 789,
-    status: 'active',
-    lastActivity: '5 min atrás'
-  }
-]
-
-const automationStats = [
-  {
-    title: 'Seguidores Ganhos',
-    value: '+234',
-    description: 'Últimas 24h',
-    icon: Users,
-    trend: '+12% vs ontem'
-  },
-  {
-    title: 'Curtidas Dadas',
-    value: '1,456',
-    description: 'Hoje',
-    icon: Heart,
-    trend: 'Meta: 1,500'
-  },
-  {
-    title: 'Comentários',
-    value: '89',
-    description: 'Hoje',
-    icon: MessageCircle,
-    trend: '+5% vs ontem'
-  },
-  {
-    title: 'Visualizações',
-    value: '12.3K',
-    description: 'Stories hoje',
-    icon: Eye,
-    trend: '+18% vs ontem'
-  }
-]
+import { useState, useEffect } from 'react';
+import { InstagramDashboard } from '../../../../components/instagram/InstagramDashboard';
+import { InstagramControl } from '../../../../components/instagram/InstagramControl';
+import { InstagramActions } from '../../../../components/instagram/InstagramActions';
+import { InstagramPhotoUpload } from '../../../../components/instagram/InstagramPhotoUpload';
 
 export default function InstagramPage() {
-  const [searchTerm, setSearchTerm] = useState('')
-  const [showAddAccount, setShowAddAccount] = useState(false)
+  const [mounted, setMounted] = useState(false);
 
-  const filteredAccounts = instagramAccounts.filter(account =>
-    account.username.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
-  return (
-    <div className="space-y-8">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 flex items-center">
-            <Instagram className="h-8 w-8 mr-3 text-pink-500" />
-            Instagram
-          </h1>
-          <p className="text-gray-600 mt-2">
-            Gerencie suas contas e automações do Instagram
+  if (!mounted) {
+    return (
+      <div className="space-y-6">
+        <div className="border-b border-gray-200 pb-4">
+          <h1 className="text-2xl font-bold text-gray-900">Automação do Instagram</h1>
+          <p className="text-gray-600 mt-1">
+            Gerencie sua conta do Instagram e execute ações de automação
           </p>
         </div>
-        <Button onClick={() => setShowAddAccount(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Adicionar Conta
-        </Button>
-      </div>
-
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {automationStats.map((stat) => {
-          const Icon = stat.icon
-          return (
-            <Card key={stat.title}>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-gray-600">
-                  {stat.title}
-                </CardTitle>
-                <Icon className="h-4 w-4 text-gray-400" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-gray-900">{stat.value}</div>
-                <p className="text-xs text-gray-600 mt-1">
-                  {stat.description}
-                </p>
-                <p className="text-xs text-green-600 mt-1">
-                  {stat.trend}
-                </p>
-              </CardContent>
-            </Card>
-          )
-        })}
-      </div>
-
-      {/* Search and Filter */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Contas do Instagram</CardTitle>
-          <CardDescription>
-            Gerencie todas as suas contas conectadas
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center space-x-2 mb-6">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-              <Input
-                placeholder="Buscar contas..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
+        <div className="animate-pulse space-y-6">
+          <div className="h-32 bg-gray-200 rounded-lg"></div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="space-y-6">
+              <div className="h-48 bg-gray-200 rounded-lg"></div>
+              <div className="h-64 bg-gray-200 rounded-lg"></div>
+            </div>
+            <div className="space-y-6">
+              <div className="h-48 bg-gray-200 rounded-lg"></div>
+              <div className="h-32 bg-gray-200 rounded-lg"></div>
             </div>
           </div>
-
-          {/* Accounts List */}
-          <div className="space-y-4">
-            {filteredAccounts.map((account) => (
-              <div key={account.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50">
-                <div className="flex items-center space-x-4">
-                  <Avatar className="h-12 w-12">
-                    <AvatarImage src={account.profileImage} />
-                    <AvatarFallback>
-                      {account.username.slice(1, 3).toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <h3 className="font-semibold text-gray-900">{account.username}</h3>
-                    <div className="flex items-center space-x-4 text-sm text-gray-600">
-                      <span>{formatNumber(account.followers)} seguidores</span>
-                      <span>{formatNumber(account.following)} seguindo</span>
-                      <span>{account.posts} posts</span>
-                    </div>
-                    <p className="text-xs text-gray-500">Última atividade: {account.lastActivity}</p>
-                  </div>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <div className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    account.status === 'active' 
-                      ? 'bg-green-100 text-green-800' 
-                      : 'bg-yellow-100 text-yellow-800'
-                  }`}>
-                    {account.status === 'active' ? 'Ativo' : 'Pausado'}
-                  </div>
-                  <Button variant="outline" size="sm">
-                    {account.status === 'active' ? (
-                      <Pause className="h-4 w-4" />
-                    ) : (
-                      <Play className="h-4 w-4" />
-                    )}
-                  </Button>
-                  <Button variant="outline" size="sm">
-                    <Settings className="h-4 w-4" />
-                  </Button>
-                  <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700">
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {filteredAccounts.length === 0 && (
-            <div className="text-center py-8">
-              <Instagram className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">
-                Nenhuma conta encontrada
-              </h3>
-              <p className="text-gray-600 mb-4">
-                {searchTerm ? 'Tente ajustar sua busca' : 'Adicione sua primeira conta do Instagram'}
-              </p>
-              {!searchTerm && (
-                <Button onClick={() => setShowAddAccount(true)}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Adicionar Conta
-                </Button>
-              )}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Add Account Modal - Simple version for now */}
-      {showAddAccount && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <Card className="w-full max-w-md">
-            <CardHeader>
-              <CardTitle>Adicionar Conta do Instagram</CardTitle>
-              <CardDescription>
-                Conecte uma nova conta para automação
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <Label htmlFor="username">Nome de usuário</Label>
-                <Input id="username" placeholder="@seu_usuario" />
-              </div>
-              <div>
-                <Label htmlFor="password">Senha</Label>
-                <Input id="password" type="password" placeholder="Sua senha" />
-              </div>
-              <div className="flex justify-end space-x-2">
-                <Button variant="outline" onClick={() => setShowAddAccount(false)}>
-                  Cancelar
-                </Button>
-                <Button>
-                  Conectar Conta
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
         </div>
-      )}
+      </div>
+    );
+  }
+  return (
+    <div className="space-y-6">
+      {/* Page Header */}
+      <div className="border-b border-gray-200 pb-4">
+        <h1 className="text-2xl font-bold text-gray-900">Automação do Instagram</h1>
+        <p className="text-gray-600 mt-1">
+          Gerencie sua conta do Instagram e execute ações de automação
+        </p>
+      </div>
+
+      {/* Dashboard Overview */}
+      <InstagramDashboard />
+
+      {/* Main Content Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Left Column */}
+        <div className="space-y-6">
+          {/* Instagram Control */}
+          <InstagramControl />
+          
+          {/* Instagram Actions */}
+          <InstagramActions />
+        </div>
+
+        {/* Right Column */}
+        <div className="space-y-6">
+          {/* Photo Upload */}
+          <InstagramPhotoUpload />
+          
+          {/* Tips and Guidelines */}
+          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-6">
+            <h3 className="text-lg font-semibold text-blue-900 mb-4">Diretrizes de Uso</h3>
+            <div className="space-y-3 text-sm text-blue-800">
+              <div className="flex items-start space-x-2">
+                <div className="w-2 h-2 bg-blue-500 rounded-full mt-2 flex-shrink-0"></div>
+                <p>Use a automação de forma responsável e respeitando os termos de uso do Instagram</p>
+              </div>
+              <div className="flex items-start space-x-2">
+                <div className="w-2 h-2 bg-blue-500 rounded-full mt-2 flex-shrink-0"></div>
+                <p>Evite ações excessivas em curtos períodos de tempo para não ser detectado como spam</p>
+              </div>
+              <div className="flex items-start space-x-2">
+                <div className="w-2 h-2 bg-blue-500 rounded-full mt-2 flex-shrink-0"></div>
+                <p>Mantenha suas credenciais seguras e não as compartilhe</p>
+              </div>
+              <div className="flex items-start space-x-2">
+                <div className="w-2 h-2 bg-blue-500 rounded-full mt-2 flex-shrink-0"></div>
+                <p>Monitore regularmente as atividades para garantir que tudo está funcionando corretamente</p>
+              </div>
+              <div className="flex items-start space-x-2">
+                <div className="w-2 h-2 bg-blue-500 rounded-full mt-2 flex-shrink-0"></div>
+                <p>Use o monitoramento de mensagens para responder rapidamente aos seus seguidores</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Safety Notice */}
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+            <div className="flex items-start space-x-3">
+              <svg className="w-5 h-5 text-yellow-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+              </svg>
+              <div>
+                <h4 className="font-medium text-yellow-800">Aviso Importante</h4>
+                <p className="text-sm text-yellow-700 mt-1">
+                  Esta ferramenta é para uso educacional e pessoal. O uso inadequado pode resultar em 
+                  restrições ou banimento da sua conta do Instagram. Use com responsabilidade.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Footer Info */}
+      <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h4 className="font-medium text-gray-900">Status da API</h4>
+            <p className="text-sm text-gray-600">Todos os endpoints estão funcionais</p>
+          </div>
+          <div className="text-right">
+             <p className="text-sm text-gray-600">Última atualização</p>
+             <p className="text-sm font-medium text-gray-900">Agora</p>
+           </div>
+        </div>
+      </div>
     </div>
-  )
+  );
 }
