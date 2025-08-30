@@ -510,7 +510,7 @@ export default function SettingsPage() {
                   </div>
                 </button>
               )
-            })}}
+            })}
           </nav>
         </div>
 
