@@ -48,6 +48,52 @@
   - `name` (TEXT): Nome do proxy
   - `address` (TEXT): Endereço do proxy
   - `port` (INTEGER): Porta do proxy
+
+#### 5. `public.instagram_accounts`
+- **Descrição**: Contas do Instagram para automação com múltiplas contas
+- **Campos**:
+  - `id` (UUID, PK): Identificador único
+  - `user_id` (UUID, FK): Referência para `auth.users(id)`
+  - `username` (VARCHAR): Nome de usuário do Instagram
+  - `auth_type` (VARCHAR): Tipo de autenticação ('credentials', 'cookies')
+  - `is_logged_in` (BOOLEAN): Status de login
+  - `is_monitoring` (BOOLEAN): Status de monitoramento
+  - `login_time`, `logout_time` (TIMESTAMPTZ): Timestamps de login/logout
+  - `monitor_started_at`, `monitor_stopped_at` (TIMESTAMPTZ): Timestamps de monitoramento
+  - `monitor_keywords` (TEXT[]): Palavras-chave para monitoramento
+  - `auto_reply_enabled` (BOOLEAN): Resposta automática habilitada
+  - `auto_reply_message` (TEXT): Mensagem de resposta automática
+  - `profile_data` (JSONB): Dados do perfil do Instagram
+  - `created_at`, `updated_at` (TIMESTAMPTZ)
+
+#### 6. `public.instagram_actions`
+- **Descrição**: Registro de ações executadas no Instagram
+- **Campos**:
+  - `id` (UUID, PK): Identificador único
+  - `user_id` (UUID, FK): Referência para `auth.users(id)`
+  - `account_id` (UUID, FK): Referência para `instagram_accounts(id)`
+  - `action_type` (VARCHAR): Tipo de ação ('like', 'comment', 'follow', 'unfollow', 'upload', 'message')
+  - `target_url` (TEXT): URL do alvo da ação
+  - `target_username` (VARCHAR): Username do alvo
+  - `comment_text` (TEXT): Texto do comentário
+  - `result` (JSONB): Resultado da ação
+  - `created_at` (TIMESTAMPTZ)
+
+#### 7. `public.instagram_messages`
+- **Descrição**: Mensagens monitoradas do Instagram
+- **Campos**:
+  - `id` (UUID, PK): Identificador único
+  - `user_id` (UUID, FK): Referência para `auth.users(id)`
+  - `account_id` (UUID, FK): Referência para `instagram_accounts(id)`
+  - `sender_username` (VARCHAR): Username do remetente
+  - `message_text` (TEXT): Texto da mensagem
+  - `message_id` (VARCHAR): ID da mensagem no Instagram
+  - `is_read` (BOOLEAN): Status de leitura
+  - `contains_keyword` (BOOLEAN): Contém palavra-chave
+  - `matched_keyword` (VARCHAR): Palavra-chave encontrada
+  - `auto_replied` (BOOLEAN): Resposta automática enviada
+  - `reply_message` (TEXT): Mensagem de resposta
+  - `received_at`, `replied_at` (TIMESTAMPTZ)
   - `username`, `password` (TEXT): Credenciais do proxy
   - `proxy_type` (TEXT): Tipo do proxy (http, https, socks5)
   - `is_active` (BOOLEAN): Status do proxy
@@ -104,6 +150,31 @@ Todas as tabelas possuem políticas RLS configuradas para garantir que:
 2. Este arquivo contém políticas RLS mais específicas e otimizadas
 3. Inclui funções de segurança adicionais e índices de performance
 4. Configura triggers de auditoria para monitoramento
+
+## Migrações Aplicadas
+
+### Migração Instagram (2024-01-20)
+- **Arquivo**: `instagram_migration.sql`
+- **Descrição**: Implementação completa do sistema de múltiplas contas do Instagram
+- **Tabelas Criadas**:
+  - `instagram_accounts`: Gerenciamento de múltiplas contas
+  - `instagram_actions`: Log de ações executadas
+  - `instagram_messages`: Monitoramento de mensagens
+- **Recursos**:
+  - Suporte a autenticação por credenciais e cookies
+  - Sistema de monitoramento de mensagens com palavras-chave
+  - Resposta automática configurável
+  - Políticas RLS para segurança
+  - Índices otimizados para performance
+  - Triggers automáticos para updated_at
+
+### APIs Implementadas
+- `POST /api/instagram/login`: Login em contas do Instagram
+- `POST /api/instagram/logout`: Logout de contas
+- `GET /api/instagram/status`: Status das contas
+- `POST /api/instagram/actions`: Execução de ações (like, comment, follow, etc.)
+- `POST /api/instagram/monitor`: Controle de monitoramento
+- `GET /api/instagram/monitor`: Busca de mensagens monitoradas
 
 ## Políticas RLS Implementadas
 
