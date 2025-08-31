@@ -91,13 +91,13 @@ export async function PUT(
       updated_at: new Date().toISOString()
     };
     
-    // Incluir cookies no profile_data se fornecido
-    if (body.cookies) {
-      updateData.profile_data = {
-        ...updateData.profile_data,
-        cookies: body.cookies
-      };
-    }
+    // Incluir cookies no cookie se fornecido
+      if (body.cookies) {
+        updateData.cookie = {
+          ...updateData.cookie,
+          cookies: body.cookies
+        };
+      }
     
     // Incluir password apenas se auth_type for 'credentials'
     if (body.auth_type === 'credentials' && body.password) {
@@ -108,7 +108,7 @@ export async function PUT(
     delete (updateData as any).id;
     delete (updateData as any).user_id;
     delete (updateData as any).created_at;
-    delete (updateData as any).cookies; // Cookies são salvos no profile_data
+    delete (updateData as any).cookies; // Cookies são salvos no cookie
 
     // Se estiver tentando atualizar o username, verificar se já existe
     if (updateData.username) {

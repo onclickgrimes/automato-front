@@ -18,7 +18,7 @@ export interface InstagramAccount {
   monitor_keywords?: string[] | null;
   auto_reply_enabled: boolean;
   auto_reply_message?: string | null;
-  profile_data?: Record<string, any> | null;
+  cookie?: Record<string, any> | null;
   created_at: string;
   updated_at: string;
 }
@@ -32,7 +32,7 @@ export interface CreateInstagramAccountData {
   monitor_keywords?: string[] | null;
   auto_reply_enabled?: boolean;
   auto_reply_message?: string | null;
-  profile_data?: Record<string, any> | null;
+  cookie?: Record<string, any> | null;
 }
 
 // Tipo para atualização de conta (todos os campos opcionais exceto id)
@@ -50,7 +50,7 @@ export interface UpdateInstagramAccountData {
   monitor_keywords?: string[] | null;
   auto_reply_enabled?: boolean;
   auto_reply_message?: string | null;
-  profile_data?: Record<string, any> | null;
+  cookie?: Record<string, any> | null;
 }
 
 // Tipo para filtros de busca

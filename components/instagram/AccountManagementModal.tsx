@@ -104,10 +104,11 @@ export function AccountManagementModal({
   // Estados para edição da conta
   const [accountData, setAccountData] = useState({
     username: account.username,
+    auth_type: account.auth_type || 'credentials',
     auto_reply_enabled: account.auto_reply_enabled,
     auto_reply_message: account.auto_reply_message || '',
     monitor_keywords: account.monitor_keywords?.join(', ') || '',
-    cookies: account.profile_data?.cookies || ''
+    cookies: account.cookie?.cookies || ''
   });
 
   // Estados para rotinas
@@ -164,16 +165,17 @@ export function AccountManagementModal({
     try {
       const updateData: Partial<InstagramAccount> = {
         username: accountData.username,
+        auth_type: accountData.auth_type,
         auto_reply_enabled: accountData.auto_reply_enabled,
         auto_reply_message: accountData.auto_reply_message || null,
         monitor_keywords: accountData.monitor_keywords 
           ? accountData.monitor_keywords.split(',').map(k => k.trim()).filter(k => k)
           : null,
-        profile_data: {
-          ...account.profile_data,
-          cookies: accountData.cookies || null,
-          updated_at: new Date().toISOString()
-        }
+        cookie: {
+           ...account.cookie,
+           cookies: accountData.cookies
+         },
+        updated_at: new Date().toISOString()
       };
 
       await onAccountUpdate(account.id, updateData);
@@ -297,6 +299,27 @@ export function AccountManagementModal({
                       placeholder="@username"
                     />
                   </div>
+                  <div>
+                    <Label htmlFor="auth_type">Tipo de Autenticação</Label>
+                    <Select
+                      value={accountData.auth_type}
+                      onValueChange={(value) => setAccountData(prev => ({ ...prev, auth_type: value as 'credentials' | 'cookie' }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione o tipo" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="credentials">Credenciais (Usuário/Senha)</SelectItem>
+                        <SelectItem value="cookie">Cookie de Sessão</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      {accountData.auth_type === 'credentials' 
+                        ? 'Usar nome de usuário e senha para login'
+                        : 'Usar cookies de sessão para autenticação'
+                      }
+                    </p>
+                  </div>
                   <div className="flex items-center space-x-2 pt-6">
                     <input
                       type="checkbox"
@@ -334,22 +357,24 @@ export function AccountManagementModal({
                   </p>
                 </div>
 
-                <div>
-                  <Label htmlFor="cookies" className="flex items-center gap-2">
-                    <Cookie className="w-4 h-4" />
-                    Cookies da Sessão
-                  </Label>
-                  <Textarea
-                    id="cookies"
-                    value={accountData.cookies}
-                    onChange={(e) => setAccountData(prev => ({ ...prev, cookies: e.target.value }))}
-                    placeholder="Cole aqui os cookies da sessão do Instagram..."
-                    rows={4}
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Os cookies serão salvos de forma segura no profile_data
-                  </p>
-                </div>
+                {accountData.auth_type === 'cookie' && (
+                  <div>
+                    <Label htmlFor="cookies" className="flex items-center gap-2">
+                      <Cookie className="w-4 h-4" />
+                      Cookies da Sessão
+                    </Label>
+                    <Textarea
+                      id="cookies"
+                      value={accountData.cookies}
+                      onChange={(e) => setAccountData(prev => ({ ...prev, cookies: e.target.value }))}
+                      placeholder="Cole aqui os cookies da sessão do Instagram..."
+                      rows={4}
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Os cookies serão salvos de forma segura no campo cookie
+                    </p>
+                  </div>
+                )}
 
                 <Button 
                   onClick={handleAccountSave} 

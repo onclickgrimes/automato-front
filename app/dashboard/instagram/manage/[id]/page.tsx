@@ -103,6 +103,7 @@ export default function ManageAccountPage() {
     username: '',
     password: '',
     cookies: '',
+    auth_type: 'credentials' as 'credentials' | 'cookie',
     monitor_keywords: [] as string[],
     auto_reply_enabled: false,
     auto_reply_message: ''
@@ -133,7 +134,8 @@ export default function ManageAccountPage() {
         setFormData({
           username: accountData.username || '',
           password: accountData.password || '',
-          cookies: accountData.profile_data?.cookies || '',
+          cookies: accountData.cookie?.cookies || '',
+          auth_type: accountData.auth_type || 'credentials',
           monitor_keywords: accountData.monitor_keywords || [],
           auto_reply_enabled: accountData.auto_reply_enabled || false,
           auto_reply_message: accountData.auto_reply_message || ''
@@ -159,6 +161,7 @@ export default function ManageAccountPage() {
       
       const updateData: Partial<InstagramAccount> = {
         username: formData.username,
+        auth_type: formData.auth_type,
         monitor_keywords: formData.monitor_keywords,
         auto_reply_enabled: formData.auto_reply_enabled,
         auto_reply_message: formData.auto_reply_message
@@ -170,7 +173,7 @@ export default function ManageAccountPage() {
       }
       
       // Incluir cookies apenas se foi alterado
-      if (formData.cookies && formData.cookies !== (account.profile_data?.cookies || '')) {
+      if (formData.cookies && formData.cookies !== (account.cookie?.cookies || '')) {
         updateData.cookies = formData.cookies;
       }
       
@@ -321,59 +324,91 @@ export default function ManageAccountPage() {
                 />
               </div>
 
-              {/* Password */}
+              {/* Auth Type */}
               <div className="space-y-2">
-                <Label htmlFor="password">Senha</Label>
-                <div className="relative">
-                  <Input
-                    id="password"
-                    type={showPassword ? 'text' : 'password'}
-                    value={formData.password}
-                    onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
-                    placeholder="Digite a senha"
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                    onClick={() => setShowPassword(!showPassword)}
-                  >
-                    {showPassword ? (
-                      <EyeOff className="h-4 w-4" />
-                    ) : (
-                      <Eye className="h-4 w-4" />
-                    )}
-                  </Button>
-                </div>
+                <Label htmlFor="auth_type">Tipo de Autenticação</Label>
+                <Select
+                  value={formData.auth_type}
+                  onValueChange={(value: 'credentials' | 'cookie') => 
+                    setFormData(prev => ({ ...prev, auth_type: value }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o tipo de autenticação" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="credentials">Credenciais (Usuário e Senha)</SelectItem>
+                    <SelectItem value="cookie">Cookie de Sessão</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  {formData.auth_type === 'credentials' 
+                    ? 'Usar nome de usuário e senha para fazer login'
+                    : 'Usar cookies de sessão para autenticação'
+                  }
+                </p>
               </div>
 
-              {/* Cookies */}
-              <div className="space-y-2">
-                <Label htmlFor="cookies">Cookies (Opcional)</Label>
-                <div className="relative">
-                  <Textarea
-                    id="cookies"
-                    value={formData.cookies}
-                    onChange={(e) => setFormData(prev => ({ ...prev, cookies: e.target.value }))}
-                    placeholder="Cole os cookies aqui..."
-                    className="min-h-[100px]"
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="absolute right-2 top-2"
-                    onClick={() => setShowCookies(!showCookies)}
-                  >
-                    {showCookies ? (
-                      <EyeOff className="h-4 w-4" />
-                    ) : (
-                      <Eye className="h-4 w-4" />
-                    )}
-                  </Button>
+              {/* Password - Only show for credentials auth */}
+              {formData.auth_type === 'credentials' && (
+                <div className="space-y-2">
+                  <Label htmlFor="password">Senha</Label>
+                  <div className="relative">
+                    <Input
+                      id="password"
+                      type={showPassword ? 'text' : 'password'}
+                      value={formData.password}
+                      onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
+                      placeholder="Digite a senha"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                      onClick={() => setShowPassword(!showPassword)}
+                    >
+                      {showPassword ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
                 </div>
-              </div>
+              )}
+
+              {/* Cookies - Only show for cookie auth */}
+              {formData.auth_type === 'cookie' && (
+                <div className="space-y-2">
+                  <Label htmlFor="cookies">Cookies de Sessão</Label>
+                  <div className="relative">
+                    <Textarea
+                      id="cookies"
+                      value={formData.cookies}
+                      onChange={(e) => setFormData(prev => ({ ...prev, cookies: e.target.value }))}
+                      placeholder="Cole os cookies de sessão aqui..."
+                      className="min-h-[100px]"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="absolute right-2 top-2"
+                      onClick={() => setShowCookies(!showCookies)}
+                    >
+                      {showCookies ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Os cookies serão salvos de forma segura no banco de dados
+                  </p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
