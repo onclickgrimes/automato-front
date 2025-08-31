@@ -7,10 +7,13 @@ export async function POST(request: NextRequest) {
     const supabase = await createClient();
     const body = await request.json();
     
+    console.log('Dados recebidos na API:', JSON.stringify(body, null, 2));
+    
     const { username, password, cookies: loginCookies, authType, accountId } = body;
 
     // Validar dados obrigatórios
     if (!username || !accountId) {
+      console.log('Erro de validação:', { username, accountId });
       return NextResponse.json(
         { success: false, error: 'Username e accountId são obrigatórios' },
         { status: 400 }
@@ -63,7 +66,6 @@ export async function POST(request: NextRequest) {
     const { error: insertError } = await supabase
       .from('instagram_accounts')
       .upsert({
-        id: accountId,
         user_id: user.id,
         username,
         auth_type: authType,
@@ -71,6 +73,8 @@ export async function POST(request: NextRequest) {
         login_time: new Date().toISOString(),
         profile_data: loginResult.profile,
         updated_at: new Date().toISOString()
+      }, {
+        onConflict: 'user_id,username'
       });
 
     if (insertError) {

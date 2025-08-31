@@ -114,15 +114,16 @@ export function InstagramAccountManager() {
     setFormError(null);
 
     try {
-      const loginRequest: InstagramLoginRequest = {
+      const loginRequest = {
         username: formData.username,
         authType: formData.authType,
-        authData: formData.authType === 'credentials' 
-          ? { username: formData.username, password: formData.password }
-          : { cookies: formData.cookies }
+        accountId: `account_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        ...(formData.authType === 'credentials' 
+          ? { password: formData.password }
+          : { cookies: formData.cookies })
       };
 
-      const result = await addAccount(loginRequest);
+      const result = await addAccount(loginRequest as any);
       
       if (result.success) {
         setFormData(initialFormData);

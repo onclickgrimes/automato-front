@@ -2,6 +2,14 @@
 
 ## Schema do Banco de Dados Supabase
 
+### Migrações Recentes
+
+#### 2025-01-20: Correção do Constraint auth_type
+- **Arquivo**: `fix_auth_type_constraint.sql`
+- **Problema**: O constraint da tabela `instagram_accounts` só aceitava 'credentials' e mas o frontend estava enviando 'cookie'
+- **Solução**: Atualizado o constraint para aceitar tanto 'cookie' quanto 'cookies'
+- **Comando**: `ALTER TABLE instagram_accounts ADD CONSTRAINT instagram_accounts_auth_type_check CHECK (auth_type IN ('credentials', 'cookie'));`
+
 ### Tabelas Criadas
 
 #### 1. `public.profiles`

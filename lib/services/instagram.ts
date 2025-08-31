@@ -115,9 +115,9 @@ class InstagramMultiAccountService {
       if (loginResult.success) {
         const account: InstagramAccount = {
           id: accountId,
-          username: credentials.auth.type === 'credentials' ? credentials.auth.username : 'cookie_user',
-          displayName: credentials.auth.type === 'credentials' ? credentials.auth.username : undefined,
-          authType: credentials.auth.type,
+          username: (credentials as any).username || 'unknown_user',
+          displayName: (credentials as any).username,
+          authType: (credentials as any).authType || 'credentials',
           isActive: true,
           lastLogin: new Date(),
           isMonitoring: false,
@@ -161,6 +161,25 @@ class InstagramMultiAccountService {
 
       // Faz logout da conta antes de remover
       await this.logout(accountId);
+      
+      // Remove a conta do Supabase
+      try {
+        const response = await fetch('/api/instagram/remove?accountId=' + encodeURIComponent(accountId), {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          console.error('Erro ao remover conta do Supabase:', errorData);
+          // Continua mesmo se falhar no Supabase para limpar o estado local
+        }
+      } catch (supabaseError) {
+        console.error('Erro na requisição para remover conta do Supabase:', supabaseError);
+        // Continua mesmo se falhar no Supabase para limpar o estado local
+      }
       
       this.accounts.delete(accountId);
       

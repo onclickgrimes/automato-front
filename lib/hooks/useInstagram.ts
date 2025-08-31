@@ -408,26 +408,7 @@ export function useInstagram(): UseInstagramReturn {
     await getStatus(accountId);
   }, [getStatus]);
 
-  // Verificar status ao montar o componente
-  useEffect(() => {
-    // Verificar se estamos no cliente antes de acessar localStorage
-    if (typeof window === 'undefined') return;
-    
-    // Carrega contas do localStorage se disponível
-    const savedAccounts = localStorage.getItem('instagram-accounts');
-    if (savedAccounts) {
-      try {
-        const accounts = JSON.parse(savedAccounts);
-        setState(prev => ({
-          ...prev,
-          accounts,
-          activeAccountId: accounts.length > 0 ? accounts[0].id : null
-        }));
-      } catch (error) {
-        console.error('Erro ao carregar contas salvas:', error);
-      }
-    }
-  }, []);
+
 
   // Salva contas no localStorage quando mudarem
   useEffect(() => {
