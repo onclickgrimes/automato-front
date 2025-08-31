@@ -107,7 +107,7 @@ export function AccountManagementModal({
     auto_reply_enabled: account.auto_reply_enabled,
     auto_reply_message: account.auto_reply_message || '',
     monitor_keywords: account.monitor_keywords?.join(', ') || '',
-    cookies: ''
+    cookies: account.profile_data?.cookies || ''
   });
 
   // Estados para rotinas

@@ -90,11 +90,25 @@ export async function PUT(
       ...body,
       updated_at: new Date().toISOString()
     };
+    
+    // Incluir cookies no profile_data se fornecido
+    if (body.cookies) {
+      updateData.profile_data = {
+        ...updateData.profile_data,
+        cookies: body.cookies
+      };
+    }
+    
+    // Incluir password apenas se auth_type for 'credentials'
+    if (body.auth_type === 'credentials' && body.password) {
+      updateData.password = body.password;
+    }
 
     // Remover campos que não devem ser atualizados pelo usuário
     delete (updateData as any).id;
     delete (updateData as any).user_id;
     delete (updateData as any).created_at;
+    delete (updateData as any).cookies; // Cookies são salvos no profile_data
 
     // Se estiver tentando atualizar o username, verificar se já existe
     if (updateData.username) {

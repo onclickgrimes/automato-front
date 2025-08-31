@@ -28,6 +28,7 @@ CREATE TABLE public.instagram_accounts (
   is_logged_in boolean DEFAULT false,
   is_monitoring boolean DEFAULT false,
   working boolean DEFAULT false,
+  password text,
   login_time timestamp with time zone,
   logout_time timestamp with time zone,
   monitor_started_at timestamp with time zone,

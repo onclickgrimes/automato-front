@@ -118,10 +118,14 @@ export async function POST(request: NextRequest) {
       user_id: user.id, // Sempre usar o ID do usuário autenticado
       username: body.username,
       auth_type: body.auth_type,
+      password: body.auth_type === 'credentials' ? body.password : null,
       monitor_keywords: body.monitor_keywords || null,
       auto_reply_enabled: body.auto_reply_enabled || false,
       auto_reply_message: body.auto_reply_message || null,
-      profile_data: body.profile_data || null
+      profile_data: {
+        ...body.profile_data,
+        ...(body.cookies && { cookies: body.cookies })
+      }
     };
     
     console.log('Dados preparados para criação:', createData);

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -27,7 +28,9 @@ import {
   LogIn,
   LogOut,
   Play,
-  Pause
+  Pause,
+  Search,
+  Filter
 } from 'lucide-react';
 import { AccountManagementModal } from './AccountManagementModal';
 
@@ -41,6 +44,7 @@ interface InstagramAccount {
   is_logged_in: boolean;
   is_monitoring: boolean;
   working: boolean;
+  password?: string | null;
   created_at: string;
   last_activity?: string;
 }
@@ -68,13 +72,20 @@ const initialFormData: AddAccountFormData = {
 };
 
 export function InstagramAccountManager() {
+  const router = useRouter();
   const [managingAccount, setManagingAccount] = useState<InstagramAccount | null>(null);
   const [isManageModalOpen, setIsManageModalOpen] = useState(false);
   // Estados locais
   const [accounts, setAccounts] = useState<InstagramAccount[]>([]);
+  const [filteredAccounts, setFilteredAccounts] = useState<InstagramAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeAccountId, setActiveAccountId] = useState<string | null>(null);
+  
+  // Estados para busca e filtros
+  const [searchTerm, setSearchTerm] = useState('');
+  const [sortOrder, setSortOrder] = useState<'creation' | 'alphabetical'>('creation');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'paused'>('all');
 
   // Funções para chamadas diretas às APIs
   const loadAccounts = async () => {
@@ -86,7 +97,12 @@ export function InstagramAccountManager() {
       }
       const result = await response.json();
       if (result.success) {
-        setAccounts(result.data || []);
+        const accountsData = result.data || [];
+        // Ordenar por data de criação (mais recentes primeiro)
+        const sortedAccounts = accountsData.sort((a: InstagramAccount, b: InstagramAccount) => 
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        );
+        setAccounts(sortedAccounts);
         setError(null);
       } else {
         throw new Error(result.error || 'Erro ao carregar contas');
@@ -170,10 +186,48 @@ export function InstagramAccountManager() {
     }
   };
 
+  // Função para filtrar e ordenar contas
+  const filterAndSortAccounts = () => {
+    let filtered = [...accounts];
+    
+    // Aplicar filtro de busca
+    if (searchTerm) {
+      filtered = filtered.filter(account => 
+        account.username.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+    
+    // Aplicar filtro de status
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(account => {
+        if (statusFilter === 'active') return account.working;
+        if (statusFilter === 'paused') return !account.working;
+        return true;
+      });
+    }
+    
+    // Aplicar ordenação
+    if (sortOrder === 'alphabetical') {
+      filtered.sort((a, b) => a.username.localeCompare(b.username));
+    } else {
+      // Manter ordenação por data de criação (já aplicada no loadAccounts)
+      filtered.sort((a, b) => 
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+    }
+    
+    setFilteredAccounts(filtered);
+  };
+  
   // Carregar contas ao montar o componente
   useEffect(() => {
     loadAccounts();
   }, []);
+  
+  // Aplicar filtros quando accounts, searchTerm, sortOrder ou statusFilter mudarem
+  useEffect(() => {
+    filterAndSortAccounts();
+  }, [accounts, searchTerm, sortOrder, statusFilter]);
   
   const getActiveAccount = () => {
     if (!Array.isArray(accounts)) return null;
@@ -276,8 +330,7 @@ export function InstagramAccountManager() {
   };
 
   const handleManageAccount = (account: InstagramAccount) => {
-    setManagingAccount(account);
-    setIsManageModalOpen(true);
+    router.push(`/dashboard/instagram/manage/${account.id}`);
   };
 
   const handleAccountUpdate = async (accountId: string, data: Partial<InstagramAccount>) => {
@@ -335,7 +388,7 @@ export function InstagramAccountManager() {
   };
 
   const getAccountStatusBadge = (account: any) => {
-    if (account.is_logged_in) {
+    if (account.working) {
       return (
         <Badge variant="default" className="bg-green-500">
           <CheckCircle className="w-3 h-3 mr-1" />
@@ -512,6 +565,45 @@ export function InstagramAccountManager() {
             </DialogContent>
           </Dialog>
         </div>
+        
+        {/* Controles de busca e filtro */}
+        <div className="flex flex-col sm:flex-row gap-4 mt-4">
+          <div className="flex-1">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <Input
+                placeholder="Buscar por nome de usuário..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+          </div>
+          
+          <div className="flex gap-2">
+            <Select value={sortOrder} onValueChange={(value: 'creation' | 'alphabetical') => setSortOrder(value)}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Ordenar por" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="creation">Data de criação</SelectItem>
+                <SelectItem value="alphabetical">Ordem alfabética</SelectItem>
+              </SelectContent>
+            </Select>
+            
+            <Select value={statusFilter} onValueChange={(value: 'all' | 'active' | 'paused') => setStatusFilter(value)}>
+              <SelectTrigger className="w-[140px]">
+                <Filter className="w-4 h-4 mr-2" />
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                <SelectItem value="active">Ativos</SelectItem>
+                <SelectItem value="paused">Pausados</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
       </CardHeader>
       
       <CardContent>
@@ -555,8 +647,8 @@ export function InstagramAccountManager() {
 
             {/* Lista de Contas */}
             <div className="space-y-3">
-              <h4 className="font-medium">Todas as Contas ({Array.isArray(accounts) ? accounts.length : 0})</h4>
-                {Array.isArray(accounts) && accounts.map((account) => (
+              <h4 className="font-medium">Todas as Contas ({Array.isArray(filteredAccounts) ? filteredAccounts.length : 0})</h4>
+                {Array.isArray(filteredAccounts) && filteredAccounts.map((account) => (
                 <div 
                   key={account.id} 
                   className={`p-3 border rounded-lg transition-colors ${
