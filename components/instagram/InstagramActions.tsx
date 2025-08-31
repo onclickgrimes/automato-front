@@ -2,315 +2,393 @@
 
 import { useState } from 'react';
 import { useInstagram } from '../../lib/hooks/useInstagram';
+import { useInstagramActions } from '../../lib/hooks/useInstagram';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Card } from '../ui/card';
+import { Textarea } from '../ui/textarea';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
+import { Badge } from '../ui/badge';
+import { Heart, MessageCircle, UserPlus, Camera, Play, Pause, User } from 'lucide-react';
 
 interface InstagramActionsProps {
   className?: string;
 }
 
 export function InstagramActions({ className }: InstagramActionsProps) {
-  const { state, likePost, commentPost, sendMessage, followUser, unfollowUser } = useInstagram();
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [activeTab, setActiveTab] = useState<'like' | 'comment' | 'message' | 'follow'>('like');
+  const { state, getActiveAccount } = useInstagram();
+  const { executeActions, isExecuting, currentAction, progress } = useInstagramActions();
   
+  const activeAccount = getActiveAccount();
   // Estados dos formulários
-  const [likeForm, setLikeForm] = useState({ postId: '' });
-  const [commentForm, setCommentForm] = useState({ postId: '', comment: '' });
-  const [messageForm, setMessageForm] = useState({ userId: '', message: '' });
-  const [followForm, setFollowForm] = useState({ userId: '' });
+  const [likeForm, setLikeForm] = useState({ postUrl: '' });
+  const [commentForm, setCommentForm] = useState({ postUrl: '', comment: '' });
+  const [followForm, setFollowForm] = useState({ username: '' });
+  const [bulkActions, setBulkActions] = useState<Array<{
+    type: string;
+    data: any;
+  }>>([]);
   
   const [lastResult, setLastResult] = useState<string | null>(null);
 
-  const handleLike = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!likeForm.postId) return;
+  const handleLikeAction = async () => {
+    if (!likeForm.postUrl || !activeAccount) return;
     
-    setIsSubmitting(true);
-    try {
-      const result = await likePost({ postId: likeForm.postId });
-      setLastResult(result.success ? 'Post curtido com sucesso!' : result.message);
-      if (result.success) {
-        setLikeForm({ postId: '' });
+    await executeActions([
+      {
+        type: 'like',
+        data: { postUrl: likeForm.postUrl, accountId: activeAccount.id },
+        delay: 1000
       }
-    } finally {
-      setIsSubmitting(false);
-    }
+    ]);
+    
+    setLikeForm({ postUrl: '' });
   };
 
-  const handleComment = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!commentForm.postId || !commentForm.comment) return;
+  const handleCommentAction = async () => {
+    if (!commentForm.postUrl || !commentForm.comment || !activeAccount) return;
     
-    setIsSubmitting(true);
-    try {
-      const result = await commentPost({
-        postId: commentForm.postId,
-        comment: commentForm.comment
-      });
-      setLastResult(result.success ? 'Comentário adicionado com sucesso!' : result.message);
-      if (result.success) {
-        setCommentForm({ postId: '', comment: '' });
+    await executeActions([
+      {
+        type: 'comment',
+        data: {
+          postUrl: commentForm.postUrl,
+          comment: commentForm.comment,
+          accountId: activeAccount.id
+        },
+        delay: 2000
       }
-    } finally {
-      setIsSubmitting(false);
-    }
+    ]);
+    
+    setCommentForm({ postUrl: '', comment: '' });
   };
 
-  const handleMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!messageForm.userId || !messageForm.message) return;
+  const handleFollowAction = async () => {
+    if (!followForm.username || !activeAccount) return;
     
-    setIsSubmitting(true);
-    try {
-      const result = await sendMessage({
-        userId: messageForm.userId,
-        message: messageForm.message
-      });
-      setLastResult(result.success ? 'Mensagem enviada com sucesso!' : result.message);
-      if (result.success) {
-        setMessageForm({ userId: '', message: '' });
+    await executeActions([
+      {
+        type: 'follow',
+        data: { username: followForm.username, accountId: activeAccount.id },
+        delay: 3000
       }
-    } finally {
-      setIsSubmitting(false);
-    }
+    ]);
+    
+    setFollowForm({ username: '' });
   };
 
-  const handleFollow = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!followForm.userId) return;
+  const handleBulkActions = async () => {
+    if (bulkActions.length === 0 || !activeAccount) return;
     
-    setIsSubmitting(true);
-    try {
-      const result = await followUser({ userId: followForm.userId });
-      setLastResult(result.success ? 'Usuário seguido com sucesso!' : result.message);
-      if (result.success) {
-        setFollowForm({ userId: '' });
-      }
-    } finally {
-      setIsSubmitting(false);
-    }
+    const actions = bulkActions.map((action, index) => ({
+      type: action.type as 'like' | 'comment' | 'follow',
+      data: { ...action.data, accountId: activeAccount.id },
+      delay: (index + 1) * 2000 // Delay progressivo
+    }));
+    
+    await executeActions(actions);
+    setBulkActions([]);
   };
 
-  const handleUnfollow = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!followForm.userId) return;
-    
-    setIsSubmitting(true);
-    try {
-      const result = await unfollowUser({ userId: followForm.userId });
-      setLastResult(result.success ? 'Parou de seguir usuário com sucesso!' : result.message);
-      if (result.success) {
-        setFollowForm({ userId: '' });
-      }
-    } finally {
-      setIsSubmitting(false);
-    }
+  const addToBulk = (type: string, data: any) => {
+    setBulkActions(prev => [...prev, { type, data }]);
   };
 
-  if (!state.isLoggedIn) {
+  const removeFromBulk = (index: number) => {
+    setBulkActions(prev => prev.filter((_, i) => i !== index));
+  };
+
+  // Verificar se há conta ativa e se está logada
+  if (!activeAccount) {
     return (
-      <Card className={`p-6 ${className}`}>
-        <div className="text-center py-8">
-          <p className="text-gray-500">Faça login no Instagram para usar as ações de automação</p>
+      <Card className={`p-8 text-center ${className}`}>
+        <div className="space-y-4">
+          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto">
+            <User className="w-8 h-8 text-gray-400" />
+          </div>
+          <div>
+            <h3 className="text-lg font-medium text-gray-900">Nenhuma conta selecionada</h3>
+            <p className="text-gray-600">
+              Selecione uma conta para executar ações
+            </p>
+          </div>
+        </div>
+      </Card>
+    );
+  }
+
+  if (!activeAccount.isLoggedIn) {
+    return (
+      <Card className={`p-8 text-center ${className}`}>
+        <div className="space-y-4">
+          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto">
+            <Heart className="w-8 h-8 text-gray-400" />
+          </div>
+          <div>
+            <h3 className="text-lg font-medium text-gray-900">Conta não conectada</h3>
+            <p className="text-gray-600">
+              A conta @{activeAccount.username} precisa estar conectada para executar ações
+            </p>
+          </div>
         </div>
       </Card>
     );
   }
 
   return (
-    <Card className={`p-6 ${className}`}>
-      <div className="space-y-6">
-        {/* Header */}
-        <h3 className="text-lg font-semibold">Ações de Automação</h3>
-
-        {/* Tabs */}
-        <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg">
-          {[
-            { id: 'like', label: 'Curtir' },
-            { id: 'comment', label: 'Comentar' },
-            { id: 'message', label: 'Mensagem' },
-            { id: 'follow', label: 'Seguir' }
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id as any)}
-              className={`flex-1 py-2 px-3 text-sm font-medium rounded-md transition-colors ${
-                activeTab === tab.id
-                  ? 'bg-white text-blue-600 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
+    <div className={`space-y-6 ${className}`}>
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-lg font-semibold">Ações do Instagram</h3>
+          <p className="text-gray-600">
+            Execute ações automatizadas na conta @{activeAccount.username}
+          </p>
         </div>
+        <div className="flex items-center gap-2">
+          <Badge variant="default" className="bg-green-500">
+            @{activeAccount.username}
+          </Badge>
+          <Badge variant={activeAccount.isLoggedIn ? 'default' : 'secondary'}>
+            {activeAccount.isLoggedIn ? 'Conectado' : 'Desconectado'}
+          </Badge>
+        </div>
+      </div>
 
-        {/* Result Message */}
-        {lastResult && (
-          <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
-            <p className="text-sm text-blue-600">{lastResult}</p>
-            <button
-              onClick={() => setLastResult(null)}
-              className="text-xs text-blue-500 hover:text-blue-700 mt-1"
-            >
-              Fechar
-            </button>
-          </div>
+      <Tabs defaultValue="like" className="w-full">
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="like" className="flex items-center gap-2">
+            <Heart className="w-4 h-4" />
+            Curtir
+          </TabsTrigger>
+          <TabsTrigger value="comment" className="flex items-center gap-2">
+            <MessageCircle className="w-4 h-4" />
+            Comentar
+          </TabsTrigger>
+          <TabsTrigger value="follow" className="flex items-center gap-2">
+            <UserPlus className="w-4 h-4" />
+            Seguir
+          </TabsTrigger>
+          <TabsTrigger value="bulk" className="flex items-center gap-2">
+            <Play className="w-4 h-4" />
+            Lote
+          </TabsTrigger>
+        </TabsList>
+
+        {/* Progress Indicator */}
+        {isExecuting && (
+          <Card className="p-4">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium">Executando ações...</span>
+                <Badge variant="secondary">
+                  {progress.current}/{progress.total}
+                </Badge>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-2">
+                <div 
+                  className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                  style={{ width: `${(progress.current / progress.total) * 100}%` }}
+                />
+              </div>
+              {currentAction && (
+                <p className="text-xs text-gray-600">
+                  Ação atual: {currentAction.type}
+                </p>
+              )}
+            </div>
+          </Card>
         )}
 
-        {/* Tab Content */}
-        <div className="space-y-4">
-          {/* Like Tab */}
-          {activeTab === 'like' && (
-            <form onSubmit={handleLike} className="space-y-4">
+        <TabsContent value="like" className="space-y-4">
+          <Card className="p-4">
+            <div className="space-y-4">
               <div>
-                <Label htmlFor="postId">ID do Post</Label>
+                <Label htmlFor="postUrl">URL do Post</Label>
                 <Input
-                  id="postId"
-                  type="text"
-                  value={likeForm.postId}
-                  onChange={(e) => setLikeForm({ postId: e.target.value })}
-                  placeholder="Ex: C5d3Tz7uF9C"
-                  disabled={isSubmitting || state.isLoading}
-                  required
+                  id="postUrl"
+                  type="url"
+                  value={likeForm.postUrl}
+                  onChange={(e) => setLikeForm({ postUrl: e.target.value })}
+                  placeholder="https://www.instagram.com/p/..."
+                  disabled={isExecuting}
                 />
                 <p className="text-xs text-gray-500 mt-1">
-                  O ID do post pode ser encontrado na URL do Instagram
+                  Cole a URL completa do post do Instagram
                 </p>
               </div>
-              <Button 
-                type="submit" 
+              <Button
+                onClick={handleLikeAction}
+                disabled={isExecuting || !likeForm.postUrl || !activeAccount?.isLoggedIn}
                 className="w-full"
-                disabled={isSubmitting || state.isLoading || !likeForm.postId}
               >
-                {isSubmitting ? 'Curtindo...' : 'Curtir Post'}
+                {isExecuting && currentAction?.type === 'like' ? (
+                  <>
+                    <Pause className="w-4 h-4 mr-2" />
+                    Curtindo...
+                  </>
+                ) : (
+                  <>
+                    <Heart className="w-4 h-4 mr-2" />
+                    Curtir Post
+                  </>
+                )}
               </Button>
-            </form>
-          )}
+            </div>
+          </Card>
+        </TabsContent>
 
-          {/* Comment Tab */}
-          {activeTab === 'comment' && (
-            <form onSubmit={handleComment} className="space-y-4">
+        <TabsContent value="comment" className="space-y-4">
+          <Card className="p-4">
+            <div className="space-y-4">
               <div>
-                <Label htmlFor="commentPostId">ID do Post</Label>
+                <Label htmlFor="commentPostUrl">URL do Post</Label>
                 <Input
-                  id="commentPostId"
-                  type="text"
-                  value={commentForm.postId}
-                  onChange={(e) => setCommentForm(prev => ({ ...prev, postId: e.target.value }))}
-                  placeholder="Ex: C5d3Tz7uF9C"
-                  disabled={isSubmitting || state.isLoading}
-                  required
+                  id="commentPostUrl"
+                  type="url"
+                  value={commentForm.postUrl}
+                  onChange={(e) => setCommentForm(prev => ({ ...prev, postUrl: e.target.value }))}
+                  placeholder="https://www.instagram.com/p/..."
+                  disabled={isExecuting}
                 />
               </div>
               <div>
                 <Label htmlFor="comment">Comentário</Label>
-                <Input
+                <Textarea
                   id="comment"
-                  type="text"
                   value={commentForm.comment}
                   onChange={(e) => setCommentForm(prev => ({ ...prev, comment: e.target.value }))}
-                  placeholder="Digite seu comentário"
-                  disabled={isSubmitting || state.isLoading}
-                  required
+                  placeholder="Digite seu comentário..."
+                  disabled={isExecuting}
+                  rows={3}
                 />
               </div>
-              <Button 
-                type="submit" 
+              <Button
+                onClick={handleCommentAction}
+                disabled={isExecuting || !commentForm.postUrl || !commentForm.comment || !activeAccount?.isLoggedIn}
                 className="w-full"
-                disabled={isSubmitting || state.isLoading || !commentForm.postId || !commentForm.comment}
               >
-                {isSubmitting ? 'Comentando...' : 'Adicionar Comentário'}
+                {isExecuting && currentAction?.type === 'comment' ? (
+                  <>
+                    <Pause className="w-4 h-4 mr-2" />
+                    Comentando...
+                  </>
+                ) : (
+                  <>
+                    <MessageCircle className="w-4 h-4 mr-2" />
+                    Comentar
+                  </>
+                )}
               </Button>
-            </form>
-          )}
+            </div>
+          </Card>
+        </TabsContent>
 
-          {/* Message Tab */}
-          {activeTab === 'message' && (
-            <form onSubmit={handleMessage} className="space-y-4">
+        <TabsContent value="follow" className="space-y-4">
+          <Card className="p-4">
+            <div className="space-y-4">
               <div>
-                <Label htmlFor="userId">Usuário</Label>
+                <Label htmlFor="username">Nome de usuário</Label>
                 <Input
-                  id="userId"
+                  id="username"
                   type="text"
-                  value={messageForm.userId}
-                  onChange={(e) => setMessageForm(prev => ({ ...prev, userId: e.target.value }))}
-                  placeholder="@usuario ou ID do usuário"
-                  disabled={isSubmitting || state.isLoading}
-                  required
+                  value={followForm.username}
+                  onChange={(e) => setFollowForm({ username: e.target.value })}
+                  placeholder="@usuario (sem o @)"
+                  disabled={isExecuting}
                 />
+                <p className="text-xs text-gray-500 mt-1">
+                  Digite apenas o nome de usuário, sem o símbolo @
+                </p>
               </div>
-              <div>
-                <Label htmlFor="message">Mensagem</Label>
-                <Input
-                  id="message"
-                  type="text"
-                  value={messageForm.message}
-                  onChange={(e) => setMessageForm(prev => ({ ...prev, message: e.target.value }))}
-                  placeholder="Digite sua mensagem"
-                  disabled={isSubmitting || state.isLoading}
-                  required
-                />
-              </div>
-              <Button 
-                type="submit" 
+              <Button
+                onClick={handleFollowAction}
+                disabled={isExecuting || !followForm.username || !activeAccount?.isLoggedIn}
                 className="w-full"
-                disabled={isSubmitting || state.isLoading || !messageForm.userId || !messageForm.message}
               >
-                {isSubmitting ? 'Enviando...' : 'Enviar Mensagem'}
+                {isExecuting && currentAction?.type === 'follow' ? (
+                  <>
+                    <Pause className="w-4 h-4 mr-2" />
+                    Seguindo...
+                  </>
+                ) : (
+                  <>
+                    <UserPlus className="w-4 h-4 mr-2" />
+                    Seguir Usuário
+                  </>
+                )}
               </Button>
-            </form>
-          )}
+            </div>
+          </Card>
+        </TabsContent>
 
-          {/* Follow Tab */}
-          {activeTab === 'follow' && (
-            <form className="space-y-4">
-              <div>
-                <Label htmlFor="followUserId">Usuário</Label>
-                <Input
-                  id="followUserId"
-                  type="text"
-                  value={followForm.userId}
-                  onChange={(e) => setFollowForm({ userId: e.target.value })}
-                  placeholder="@usuario ou ID do usuário"
-                  disabled={isSubmitting || state.isLoading}
-                  required
-                />
+        <TabsContent value="bulk" className="space-y-4">
+          <Card className="p-4">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h4 className="font-medium">Ações em Lote</h4>
+                <Badge variant="secondary">
+                  {bulkActions.length} ações
+                </Badge>
               </div>
-              <div className="flex space-x-2">
-                <Button 
-                  type="button"
-                  onClick={handleFollow}
-                  className="flex-1"
-                  disabled={isSubmitting || state.isLoading || !followForm.userId}
-                >
-                  {isSubmitting ? 'Seguindo...' : 'Seguir'}
-                </Button>
-                <Button 
-                  type="button"
-                  onClick={handleUnfollow}
-                  variant="destructive"
-                  className="flex-1"
-                  disabled={isSubmitting || state.isLoading || !followForm.userId}
-                >
-                  {isSubmitting ? 'Parando...' : 'Parar de Seguir'}
-                </Button>
-              </div>
-            </form>
-          )}
-        </div>
+              
+              {bulkActions.length > 0 && (
+                <div className="space-y-2 max-h-40 overflow-y-auto">
+                  {bulkActions.map((action, index) => (
+                    <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                      <span className="text-sm">
+                        {action.type}: {JSON.stringify(action.data).substring(0, 50)}...
+                      </span>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => removeFromBulk(index)}
+                      >
+                        ×
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              
+              <Button
+                onClick={handleBulkActions}
+                disabled={isExecuting || bulkActions.length === 0 || !activeAccount?.isLoggedIn}
+                className="w-full"
+              >
+                {isExecuting ? (
+                  <>
+                    <Pause className="w-4 h-4 mr-2" />
+                    Executando... ({progress.current}/{progress.total})
+                  </>
+                ) : (
+                  <>
+                    <Play className="w-4 h-4 mr-2" />
+                    Executar Ações ({bulkActions.length})
+                  </>
+                )}
+              </Button>
+            </div>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
-        {/* Loading Indicator */}
-        {(isSubmitting || state.isLoading) && (
-          <div className="flex items-center justify-center py-2">
-            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-            <span className="ml-2 text-sm text-gray-600">Processando...</span>
+      {/* Result Message */}
+      {lastResult && (
+        <Card className="p-4">
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-green-600">{lastResult}</p>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => setLastResult(null)}
+            >
+              ×
+            </Button>
           </div>
-        )}
-      </div>
-    </Card>
+        </Card>
+      )}
+    </div>
   );
 }

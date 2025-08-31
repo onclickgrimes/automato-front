@@ -1,40 +1,65 @@
 // Tipos para requisições da API do Instagram
 
-// Requisições de Automação
-export interface InstagramLoginRequest {
+// Tipos de autenticação
+export type InstagramAuthType = 'credentials' | 'cookie';
+
+export interface InstagramCredentialsAuth {
+  type: 'credentials';
   username: string;
   password: string;
 }
 
+export interface InstagramCookieAuth {
+  type: 'cookie';
+  sessionId: string;
+  csrfToken?: string;
+  userId?: string;
+}
+
+export type InstagramAuthData = InstagramCredentialsAuth | InstagramCookieAuth;
+
+// Requisições de Automação
+export interface InstagramLoginRequest {
+  accountId?: string; // ID da conta para múltiplas contas
+  auth: InstagramAuthData;
+}
+
 export interface InstagramLikeRequest {
+  accountId?: string;
   postId: string;
 }
 
 export interface InstagramCommentRequest {
+  accountId?: string;
   postId: string;
   comment: string;
 }
 
 export interface InstagramMessageRequest {
+  accountId?: string;
   userId: string;
   message: string;
 }
 
 export interface InstagramPhotoRequest {
+  accountId?: string;
   imagePath: string;
   caption?: string;
 }
 
 export interface InstagramFollowRequest {
+  accountId?: string;
   userId: string;
 }
 
 export interface InstagramUnfollowRequest {
+  accountId?: string;
   userId: string;
 }
 
 // Requisições de Monitoramento
 export interface InstagramMonitorStartRequest {
+  accountId?: string;
   checkInterval?: number;
   includeRequests?: boolean;
 }
@@ -53,10 +78,20 @@ export interface InstagramStatusResponse {
 
 // Estados do Instagram
 export interface InstagramState {
-  isLoggedIn: boolean;
-  isMonitoring: boolean;
+  accounts: InstagramAccountState[];
+  activeAccountId: string | null;
   isLoading: boolean;
   error: string | null;
+}
+
+export interface InstagramAccountState {
+  id: string;
+  username: string;
+  isLoggedIn: boolean;
+  isMonitoring: boolean;
+  authType: InstagramAuthType;
+  lastActivity?: Date;
+  stats: InstagramStats;
 }
 
 // Tipos para ações
@@ -83,9 +118,14 @@ export interface InstagramConfig {
 export interface InstagramAccount {
   id: string;
   username: string;
+  displayName?: string;
+  profilePicture?: string;
+  authType: InstagramAuthType;
   isActive: boolean;
   lastLogin?: Date;
   isMonitoring: boolean;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 // Estatísticas de automação
@@ -180,16 +220,25 @@ export interface InstagramAutomationConfig {
 // Hook de estado do Instagram
 export interface UseInstagramReturn {
   state: InstagramState;
+  // Gerenciamento de contas
+  addAccount: (credentials: InstagramLoginRequest) => Promise<InstagramOperationResult>;
+  removeAccount: (accountId: string) => Promise<InstagramOperationResult>;
+  switchAccount: (accountId: string) => void;
+  getActiveAccount: () => InstagramAccountState | null;
+  // Autenticação
   login: (credentials: InstagramLoginRequest) => Promise<InstagramOperationResult>;
-  logout: () => Promise<InstagramOperationResult>;
+  logout: (accountId?: string) => Promise<InstagramOperationResult>;
+  // Ações do Instagram
   likePost: (request: InstagramLikeRequest) => Promise<InstagramOperationResult>;
   commentPost: (request: InstagramCommentRequest) => Promise<InstagramOperationResult>;
   sendMessage: (request: InstagramMessageRequest) => Promise<InstagramOperationResult>;
   postPhoto: (request: InstagramPhotoRequest) => Promise<InstagramOperationResult>;
   followUser: (request: InstagramFollowRequest) => Promise<InstagramOperationResult>;
   unfollowUser: (request: InstagramUnfollowRequest) => Promise<InstagramOperationResult>;
+  // Monitoramento
   startMonitoring: (config?: InstagramMonitorStartRequest) => Promise<InstagramOperationResult>;
-  stopMonitoring: () => Promise<InstagramOperationResult>;
-  getStatus: () => Promise<InstagramStatusResponse>;
-  refreshStatus: () => Promise<void>;
+  stopMonitoring: (accountId?: string) => Promise<InstagramOperationResult>;
+  // Status
+  getStatus: (accountId?: string) => Promise<InstagramStatusResponse>;
+  refreshStatus: (accountId?: string) => Promise<void>;
 }

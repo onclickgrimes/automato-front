@@ -1,241 +1,302 @@
 'use client';
 
-import { useEffect } from 'react';
-import { useInstagram, useInstagramStats } from '../../lib/hooks/useInstagram';
+import { useInstagram } from '../../lib/hooks/useInstagram';
+import { useInstagramStats } from '../../lib/hooks/useInstagram';
 import { Card } from '../ui/card';
+import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import { InstagramControl } from './InstagramControl';
+import { InstagramActions } from './InstagramActions';
+import { Activity, Users, MessageCircle, Heart, Camera, Eye, User } from 'lucide-react';
 
 interface InstagramDashboardProps {
   className?: string;
 }
 
 export function InstagramDashboard({ className }: InstagramDashboardProps) {
-  const { state, refreshStatus } = useInstagram();
+  const { state, getActiveAccount, switchAccount } = useInstagram();
   const { stats } = useInstagramStats();
+  
+  const activeAccount = getActiveAccount();
+  const activeStats = activeAccount ? stats[activeAccount.id] : null;
 
-  useEffect(() => {
-    // Atualizar status a cada 30 segundos se estiver logado
-    if (!state.isLoggedIn) return;
+  const formatDate = (dateString: string) => {
+    // Usar formato consistente para evitar problemas de hidratação
+    const date = new Date(dateString);
+    return date.toISOString().replace('T', ' ').substring(0, 19);
+  };
 
-    const interval = setInterval(() => {
-      refreshStatus();
-    }, 30000);
+  const getAccountStatusColor = (account: any) => {
+    if (account.isLoggedIn && account.isMonitoring) return 'bg-green-500';
+    if (account.isLoggedIn) return 'bg-yellow-500';
+    return 'bg-red-500';
+  };
 
-    return () => clearInterval(interval);
-  }, [state.isLoggedIn, refreshStatus]);
+  const getAccountStatusText = (account: any) => {
+    if (account.isLoggedIn && account.isMonitoring) return 'Ativo';
+    if (account.isLoggedIn) return 'Conectado';
+    return 'Desconectado';
+  };
 
   return (
     <div className={`space-y-6 ${className}`}>
-      {/* Status Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Connection Status */}
-        <Card className="p-4">
-          <div className="flex items-center space-x-3">
-            <div className={`w-3 h-3 rounded-full ${
-              state.isLoggedIn ? 'bg-green-500' : 'bg-red-500'
-            }`} />
-            <div>
-              <p className="text-sm font-medium text-gray-600">Status</p>
-              <p className="text-lg font-semibold">
-                {state.isLoggedIn ? 'Conectado' : 'Desconectado'}
-              </p>
-            </div>
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold">Dashboard do Instagram</h2>
+          <p className="text-gray-600">
+            Gerencie suas atividades e monitore mensagens em múltiplas contas
+          </p>
+        </div>
+        <div className="flex items-center space-x-4">
+          {/* Account Overview */}
+          <div className="flex items-center space-x-2">
+            <User className="w-4 h-4 text-gray-500" />
+            <span className="text-sm text-gray-600">
+              {state.accounts.length} conta{state.accounts.length !== 1 ? 's' : ''}
+            </span>
           </div>
-        </Card>
-
-        {/* Monitoring Status */}
-        <Card className="p-4">
-          <div className="flex items-center space-x-3">
-            <div className={`w-3 h-3 rounded-full ${
-              state.isMonitoring ? 'bg-blue-500' : 'bg-gray-400'
-            }`} />
-            <div>
-              <p className="text-sm font-medium text-gray-600">Monitoramento</p>
-              <p className="text-lg font-semibold">
-                {state.isMonitoring ? 'Ativo' : 'Inativo'}
-              </p>
+          
+          {activeAccount && (
+            <div className="flex items-center space-x-2">
+              <div className={`w-3 h-3 rounded-full ${getAccountStatusColor(activeAccount)}`} />
+              <Badge variant={activeAccount.isLoggedIn ? 'default' : 'secondary'}>
+                @{activeAccount.username} - {getAccountStatusText(activeAccount)}
+              </Badge>
             </div>
-          </div>
-        </Card>
-
-        {/* Total Actions */}
-        <Card className="p-4">
-          <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
-              <svg className="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
-            </div>
-            <div>
-              <p className="text-sm font-medium text-gray-600">Total de Ações</p>
-              <p className="text-lg font-semibold">{stats.totalActions}</p>
-            </div>
-          </div>
-        </Card>
-
-        {/* Success Rate */}
-        <Card className="p-4">
-          <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-              <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-            <div>
-              <p className="text-sm font-medium text-gray-600">Taxa de Sucesso</p>
-              <p className="text-lg font-semibold">
-                {stats.totalActions > 0 
-                  ? `${Math.round((stats.successfulActions / stats.totalActions) * 100)}%`
-                  : '0%'
-                }
-              </p>
-            </div>
-          </div>
-        </Card>
+          )}
+        </div>
       </div>
 
-      {/* Detailed Stats */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Activity Stats */}
-        <Card className="p-6">
-          <h3 className="text-lg font-semibold mb-4">Estatísticas de Atividade</h3>
-          <div className="space-y-4">
-            <div className="flex justify-between items-center">
-              <span className="text-gray-600">Ações Bem-sucedidas</span>
-              <span className="font-semibold text-green-600">{stats.successfulActions}</span>
+      {/* Account Selector */}
+      {state.accounts.length > 1 && (
+        <Card className="p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-medium">Conta Ativa</h3>
+              <p className="text-sm text-gray-600">Selecione a conta para visualizar dados específicos</p>
             </div>
-            <div className="flex justify-between items-center">
-              <span className="text-gray-600">Ações Falharam</span>
-              <span className="font-semibold text-red-600">{stats.failedActions}</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-gray-600">Total de Ações</span>
-              <span className="font-semibold">{stats.totalActions}</span>
-            </div>
-            {stats.lastAction && (
-              <div className="pt-4 border-t">
-                <p className="text-sm text-gray-600 mb-2">Última Ação:</p>
-                <div className="bg-gray-50 p-3 rounded-md">
-                  <p className="text-sm font-medium">{stats.lastAction.message}</p>
-                  <p className="text-xs text-gray-500 mt-1">
-                    {stats.lastAction.timestamp.toLocaleString()}
-                  </p>
-                  <span className={`inline-block px-2 py-1 text-xs rounded-full mt-2 ${
-                    stats.lastAction.success 
-                      ? 'bg-green-100 text-green-800'
-                      : 'bg-red-100 text-red-800'
-                  }`}>
-                    {stats.lastAction.success ? 'Sucesso' : 'Falha'}
-                  </span>
-                </div>
-              </div>
-            )}
-          </div>
-        </Card>
-
-        {/* System Status */}
-        <Card className="p-6">
-          <h3 className="text-lg font-semibold mb-4">Status do Sistema</h3>
-          <div className="space-y-4">
-            <div className="flex justify-between items-center">
-              <span className="text-gray-600">Conexão Instagram</span>
-              <span className={`px-2 py-1 text-xs rounded-full ${
-                state.isLoggedIn 
-                  ? 'bg-green-100 text-green-800'
-                  : 'bg-red-100 text-red-800'
-              }`}>
-                {state.isLoggedIn ? 'Conectado' : 'Desconectado'}
-              </span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-gray-600">Monitoramento</span>
-              <span className={`px-2 py-1 text-xs rounded-full ${
-                state.isMonitoring 
-                  ? 'bg-blue-100 text-blue-800'
-                  : 'bg-gray-100 text-gray-800'
-              }`}>
-                {state.isMonitoring ? 'Ativo' : 'Inativo'}
-              </span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-gray-600">Sistema</span>
-              <span className={`px-2 py-1 text-xs rounded-full ${
-                state.isLoading 
-                  ? 'bg-yellow-100 text-yellow-800'
-                  : 'bg-green-100 text-green-800'
-              }`}>
-                {state.isLoading ? 'Processando' : 'Operacional'}
-              </span>
-            </div>
-            
-            {/* Error Display */}
-            {state.error && (
-              <div className="pt-4 border-t">
-                <p className="text-sm text-gray-600 mb-2">Último Erro:</p>
-                <div className="bg-red-50 border border-red-200 p-3 rounded-md">
-                  <p className="text-sm text-red-600">{state.error}</p>
-                </div>
-              </div>
-            )}
-
-            {/* Refresh Button */}
-            <div className="pt-4 border-t">
-              <Button
-                onClick={refreshStatus}
-                disabled={state.isLoading}
-                variant="outline"
-                className="w-full"
-              >
-                {state.isLoading ? 'Atualizando...' : 'Atualizar Status'}
-              </Button>
-            </div>
-          </div>
-        </Card>
-      </div>
-
-      {/* Quick Actions */}
-      {state.isLoggedIn && (
-        <Card className="p-6">
-          <h3 className="text-lg font-semibold mb-4">Ações Rápidas</h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="text-center p-4 bg-blue-50 rounded-lg">
-              <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-2">
-                <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                </svg>
-              </div>
-              <p className="text-sm font-medium text-blue-600">Curtir Posts</p>
-            </div>
-            
-            <div className="text-center p-4 bg-green-50 rounded-lg">
-              <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-2">
-                <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                </svg>
-              </div>
-              <p className="text-sm font-medium text-green-600">Comentários</p>
-            </div>
-            
-            <div className="text-center p-4 bg-purple-50 rounded-lg">
-              <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-2">
-                <svg className="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
-                </svg>
-              </div>
-              <p className="text-sm font-medium text-purple-600">Seguir Usuários</p>
-            </div>
-            
-            <div className="text-center p-4 bg-orange-50 rounded-lg">
-              <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-2">
-                <svg className="w-4 h-4 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-              </div>
-              <p className="text-sm font-medium text-orange-600">Publicar Fotos</p>
+            <div className="w-64">
+              <Select value={activeAccount?.id || ''} onValueChange={switchAccount}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione uma conta" />
+                </SelectTrigger>
+                <SelectContent>
+                  {state.accounts.map((account) => (
+                    <SelectItem key={account.id} value={account.id}>
+                      <div className="flex items-center gap-2">
+                        <div className={`w-2 h-2 rounded-full ${getAccountStatusColor(account)}`} />
+                        @{account.username}
+                        <span className="text-xs text-gray-500">
+                          ({account.authType === 'credentials' ? 'Credenciais' : 'Cookie'})
+                        </span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
         </Card>
       )}
+
+      {/* No Account Selected */}
+      {!activeAccount && (
+        <Card className="p-8 text-center">
+          <User className="w-16 h-16 mx-auto text-gray-400 mb-4" />
+          <h3 className="text-lg font-medium mb-2">Nenhuma conta selecionada</h3>
+          <p className="text-gray-600 mb-4">
+            {state.accounts.length === 0 
+              ? 'Adicione uma conta do Instagram para começar'
+              : 'Selecione uma conta para visualizar o dashboard'
+            }
+          </p>
+        </Card>
+      )}
+
+      {/* Stats Cards */}
+      {activeAccount && activeStats && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <Card className="p-4">
+            <div className="flex items-center space-x-2">
+              <Heart className="w-5 h-5 text-red-500" />
+              <div>
+                <p className="text-sm font-medium">Curtidas</p>
+                <p className="text-2xl font-bold">{activeStats.likes}</p>
+              </div>
+            </div>
+          </Card>
+          
+          <Card className="p-4">
+            <div className="flex items-center space-x-2">
+              <MessageCircle className="w-5 h-5 text-blue-500" />
+              <div>
+                <p className="text-sm font-medium">Comentários</p>
+                <p className="text-2xl font-bold">{activeStats.comments}</p>
+              </div>
+            </div>
+          </Card>
+          
+          <Card className="p-4">
+            <div className="flex items-center space-x-2">
+              <Users className="w-5 h-5 text-green-500" />
+              <div>
+                <p className="text-sm font-medium">Seguidores</p>
+                <p className="text-2xl font-bold">{activeStats.follows}</p>
+              </div>
+            </div>
+          </Card>
+          
+          <Card className="p-4">
+            <div className="flex items-center space-x-2">
+              <Camera className="w-5 h-5 text-purple-500" />
+              <div>
+                <p className="text-sm font-medium">Posts</p>
+                <p className="text-2xl font-bold">{activeStats.posts}</p>
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* Main Content */}
+      <Tabs defaultValue="control" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="control">Controle</TabsTrigger>
+          <TabsTrigger value="actions" disabled={!activeAccount}>
+            Ações {!activeAccount && '(Selecione uma conta)'}
+          </TabsTrigger>
+          <TabsTrigger value="activity" disabled={!activeAccount}>
+            Atividade {!activeAccount && '(Selecione uma conta)'}
+          </TabsTrigger>
+          <TabsTrigger value="overview">Visão Geral</TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="control">
+          <InstagramControl />
+        </TabsContent>
+        
+        <TabsContent value="actions">
+          {activeAccount ? (
+            <InstagramActions />
+          ) : (
+            <Card className="p-8 text-center">
+              <User className="w-12 h-12 mx-auto text-gray-400 mb-4" />
+              <p className="text-gray-600">Selecione uma conta para executar ações</p>
+            </Card>
+          )}
+        </TabsContent>
+        
+        <TabsContent value="activity">
+          <Card className="p-6">
+            <div className="flex items-center space-x-2 mb-4">
+              <Activity className="w-5 h-5" />
+              <h3 className="text-lg font-semibold">
+                Log de Atividades
+                {activeAccount && ` - @${activeAccount.username}`}
+              </h3>
+            </div>
+            
+            {!activeAccount ? (
+              <div className="text-center py-8">
+                <User className="w-12 h-12 mx-auto text-gray-400 mb-4" />
+                <p className="text-gray-600">Selecione uma conta para ver o log de atividades</p>
+              </div>
+            ) : activeAccount.activityLog.length === 0 ? (
+              <p className="text-gray-500 text-center py-8">
+                Nenhuma atividade registrada ainda para @{activeAccount.username}
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {activeAccount.activityLog.slice(0, 10).map((activity, index) => (
+                  <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-md">
+                    <div>
+                      <p className="font-medium">{activity.action}</p>
+                      <p className="text-sm text-gray-600">{activity.details}</p>
+                    </div>
+                    <div className="text-right">
+                      <Badge variant={activity.success ? 'default' : 'destructive'}>
+                        {activity.success ? 'Sucesso' : 'Erro'}
+                      </Badge>
+                      <p className="text-xs text-gray-500 mt-1">
+                        {formatDate(activity.timestamp)}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="overview">
+          <div className="space-y-6">
+            {/* All Accounts Overview */}
+            <Card className="p-6">
+              <h3 className="text-lg font-semibold mb-4">Todas as Contas</h3>
+              {state.accounts.length === 0 ? (
+                <div className="text-center py-8">
+                  <User className="w-12 h-12 mx-auto text-gray-400 mb-4" />
+                  <p className="text-gray-600">Nenhuma conta adicionada ainda</p>
+                </div>
+              ) : (
+                <div className="grid gap-4">
+                  {state.accounts.map((account) => {
+                    const accountStats = stats[account.id];
+                    return (
+                      <div key={account.id} className="p-4 border rounded-lg">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-3">
+                            <div className={`w-3 h-3 rounded-full ${getAccountStatusColor(account)}`} />
+                            <div>
+                              <h4 className="font-medium">@{account.username}</h4>
+                              <p className="text-sm text-gray-600">
+                                {account.authType === 'credentials' ? 'Credenciais' : 'Cookie'} • 
+                                {getAccountStatusText(account)}
+                              </p>
+                            </div>
+                          </div>
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => switchAccount(account.id)}
+                            disabled={activeAccount?.id === account.id}
+                          >
+                            {activeAccount?.id === account.id ? 'Ativa' : 'Selecionar'}
+                          </Button>
+                        </div>
+                        
+                        {accountStats && (
+                          <div className="grid grid-cols-4 gap-4 text-center">
+                            <div>
+                              <p className="text-lg font-bold text-red-500">{accountStats.likes}</p>
+                              <p className="text-xs text-gray-600">Curtidas</p>
+                            </div>
+                            <div>
+                              <p className="text-lg font-bold text-blue-500">{accountStats.comments}</p>
+                              <p className="text-xs text-gray-600">Comentários</p>
+                            </div>
+                            <div>
+                              <p className="text-lg font-bold text-green-500">{accountStats.follows}</p>
+                              <p className="text-xs text-gray-600">Seguidores</p>
+                            </div>
+                            <div>
+                              <p className="text-lg font-bold text-purple-500">{accountStats.posts}</p>
+                              <p className="text-xs text-gray-600">Posts</p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </Card>
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
