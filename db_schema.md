@@ -29,7 +29,7 @@ CREATE TABLE public.instagram_accounts (
   monitor_keywords ARRAY,
   auto_reply_enabled boolean DEFAULT false,
   auto_reply_message text,
-  profile_data jsonb,
+  cookie text,
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
   CONSTRAINT instagram_accounts_pkey PRIMARY KEY (id),

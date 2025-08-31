@@ -45,6 +45,7 @@ interface InstagramAccount {
   is_monitoring: boolean;
   working: boolean;
   password?: string | null;
+  cookie?: string | null;
   created_at: string;
   last_activity?: string;
 }
@@ -86,6 +87,9 @@ export function InstagramAccountManager() {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortOrder, setSortOrder] = useState<'creation' | 'alphabetical'>('creation');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'paused'>('all');
+  
+  // Estado para controlar loading de contas específicas
+  const [workingAccountId, setWorkingAccountId] = useState<string | null>(null);
 
   // Funções para chamadas diretas às APIs
   const loadAccounts = async () => {
@@ -378,13 +382,60 @@ export function InstagramAccountManager() {
     const account = accounts.find(acc => acc.id === accountId);
     if (!account) return;
 
-    try {
-      await updateAccount(accountId, { working: !account.working });
-      await loadAccounts(); // Recarregar a lista para refletir as mudanças
-    } catch (error) {
-      console.error('Erro ao alterar status de trabalho:', error);
-      setError('Erro ao alterar status de trabalho');
+    // Prevenir múltiplas operações simultâneas
+    if (workingAccountId) return;
+
+    setWorkingAccountId(accountId);
+
+    // Se está tentando iniciar (working = false -> true)
+    if (!account.working) {
+      try {
+        setError(null);
+        
+        // Fazer requisição para o backend do ngrok para iniciar o puppeteer
+        const response = await fetch('https://able-viable-elephant.ngrok-free.app/api/instagram/iniciar', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'ngrok-skip-browser-warning': 'true'
+          },
+          body: JSON.stringify({
+            accountId: accountId,
+            username: account.username,
+            auth_type: account.auth_type,
+            ...(account.auth_type === 'credentials' ? { password: account.password } : { cookies: account.cookie })
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error(`Erro na requisição: ${response.status}`);
+        }
+
+        const result = await response.json();
+        
+        if (result.status === 'ok' || result.success) {
+          // Se o backend retornou ok, atualizar o campo working
+          await updateAccount(accountId, { working: true });
+          await loadAccounts();
+        } else {
+          throw new Error(result.message || 'Erro ao iniciar conta no backend');
+        }
+      } catch (error) {
+        console.error('Erro ao iniciar conta:', error);
+        setError(`Erro ao iniciar conta: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+      }
+    } else {
+      // Se está pausando (working = true -> false), apenas atualizar localmente
+      try {
+        await updateAccount(accountId, { working: false });
+        await loadAccounts();
+      } catch (error) {
+        console.error('Erro ao pausar conta:', error);
+        setError('Erro ao pausar conta');
+      }
     }
+    
+    setWorkingAccountId(null);
   };
 
   const getAccountStatusBadge = (account: any) => {
@@ -691,8 +742,14 @@ export function InstagramAccountManager() {
                         size="sm"
                         variant={account.working ? "secondary" : "outline"}
                         onClick={() => handleToggleWorking(account.id)}
+                        disabled={workingAccountId === account.id}
                       >
-                        {account.working ? (
+                        {workingAccountId === account.id ? (
+                          <>
+                            <RefreshCw className="w-4 h-4 mr-1 animate-spin" />
+                            {account.working ? 'Pausando...' : 'Iniciando...'}
+                          </>
+                        ) : account.working ? (
                           <>
                             <Pause className="w-4 h-4 mr-1" />
                             Pausar
