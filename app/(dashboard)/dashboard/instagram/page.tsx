@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from 'react';
-import { InstagramDashboard } from '../../../../components/instagram/InstagramDashboard';
+import { InstagramAccountManager } from '../../../../components/instagram/InstagramAccountManager';
 import { InstagramControl } from '../../../../components/instagram/InstagramControl';
 import { InstagramActions } from '../../../../components/instagram/InstagramActions';
 import { InstagramPhotoUpload } from '../../../../components/instagram/InstagramPhotoUpload';
@@ -48,8 +48,8 @@ export default function InstagramPage() {
         </p>
       </div>
 
-      {/* Dashboard Overview */}
-      <InstagramDashboard />
+      {/* Instagram Account Manager */}
+      <InstagramAccountManager />
 
       {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

@@ -308,6 +308,15 @@ export function InstagramAccountManager() {
     );
   };
 
+  const refreshStatus = async (accountId: string) => {
+    try {
+      await loadAccounts();
+    } catch (error) {
+      console.error('Erro ao atualizar status:', error);
+      setError('Erro ao atualizar status da conta');
+    }
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -476,7 +485,7 @@ export function InstagramAccountManager() {
                     <p className="font-medium">@{activeAccount.username}</p>
                     <div className="flex items-center gap-2 mt-1">
                       {getAccountStatusBadge(activeAccount)}
-                      {getAuthTypeBadge(activeAccount.authType)}
+                      {getAuthTypeBadge(activeAccount.auth_type)}
                     </div>
                   </div>
                 </div>
@@ -564,9 +573,9 @@ export function InstagramAccountManager() {
                     </div>
                   </div>
                   
-                  {account.lastActivity && (
+                  {account.last_activity && (
                     <p className="text-xs text-muted-foreground mt-2">
-                      Última atividade: {new Date(account.lastActivity).toISOString().replace('T', ' ').substring(0, 19)}
+                      Última atividade: {new Date(account.last_activity).toISOString().replace('T', ' ').substring(0, 19)}
                     </p>
                   )}
                 </div>
