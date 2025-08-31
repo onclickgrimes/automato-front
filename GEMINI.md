@@ -27,6 +27,7 @@ CREATE TABLE public.instagram_accounts (
   auth_type character varying NOT NULL CHECK (auth_type::text = ANY (ARRAY['credentials'::character varying, 'cookie'::character varying]::text[])),
   is_logged_in boolean DEFAULT false,
   is_monitoring boolean DEFAULT false,
+  working boolean DEFAULT false,
   login_time timestamp with time zone,
   logout_time timestamp with time zone,
   monitor_started_at timestamp with time zone,

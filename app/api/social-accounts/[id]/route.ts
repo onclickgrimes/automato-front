@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const supabase = await createClient()
@@ -18,10 +18,11 @@ export async function GET(
       )
     }
 
+    const { id } = await params
     const { data: account, error } = await supabase
       .from('social_accounts')
       .select('*')
-      .eq('id', params.id)
+      .eq('id', id)
       .eq('user_id', session.user.id)
       .single()
 
@@ -51,7 +52,7 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const supabase = await createClient()
@@ -66,6 +67,7 @@ export async function PUT(
       )
     }
 
+    const { id } = await params
     const body = await request.json()
     const { display_name, access_token, refresh_token, settings, status } = body
 
@@ -73,7 +75,7 @@ export async function PUT(
     const { data: existingAccount, error: checkError } = await supabase
       .from('social_accounts')
       .select('id')
-      .eq('id', params.id)
+      .eq('id', id)
       .eq('user_id', session.user.id)
       .single()
 
@@ -113,7 +115,7 @@ export async function PUT(
     const { data: account, error } = await supabase
       .from('social_accounts')
       .update(updateData)
-      .eq('id', params.id)
+      .eq('id', id)
       .eq('user_id', session.user.id)
       .select()
       .single()
@@ -138,7 +140,7 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const supabase = await createClient()
@@ -153,11 +155,12 @@ export async function DELETE(
       )
     }
 
+    const { id } = await params
     // Verificar se a conta existe e pertence ao usuário
     const { data: existingAccount, error: checkError } = await supabase
       .from('social_accounts')
       .select('id, type, username')
-      .eq('id', params.id)
+      .eq('id', id)
       .eq('user_id', session.user.id)
       .single()
 
@@ -180,7 +183,7 @@ export async function DELETE(
       .from('routines')
       .select('id, name')
       .eq('user_id', session.user.id)
-      .eq('social_account_id', params.id)
+      .eq('social_account_id', id)
       .eq('status', 'active')
 
     if (routinesError) {
@@ -205,7 +208,7 @@ export async function DELETE(
     const { error } = await supabase
       .from('social_accounts')
       .delete()
-      .eq('id', params.id)
+      .eq('id', id)
       .eq('user_id', session.user.id)
 
     if (error) {

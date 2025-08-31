@@ -9,6 +9,7 @@ export interface InstagramAccount {
   auth_type: InstagramAuthType;
   is_logged_in: boolean;
   is_monitoring: boolean;
+  working: boolean;
   login_time?: string | null;
   logout_time?: string | null;
   monitor_started_at?: string | null;
@@ -38,6 +39,7 @@ export interface UpdateInstagramAccountData {
   auth_type?: InstagramAuthType;
   is_logged_in?: boolean;
   is_monitoring?: boolean;
+  working?: boolean;
   login_time?: string | null;
   logout_time?: string | null;
   monitor_started_at?: string | null;
@@ -55,6 +57,7 @@ export interface InstagramAccountFilters {
   auth_type?: InstagramAuthType;
   is_logged_in?: boolean;
   is_monitoring?: boolean;
+  working?: boolean;
   auto_reply_enabled?: boolean;
 }
 

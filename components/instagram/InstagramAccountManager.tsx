@@ -25,8 +25,11 @@ import {
   RefreshCw,
   Settings,
   LogIn,
-  LogOut
+  LogOut,
+  Play,
+  Pause
 } from 'lucide-react';
+import { AccountManagementModal } from './AccountManagementModal';
 
 // Tipos locais simplificados
 type InstagramAuthType = 'credentials' | 'cookie';
@@ -37,6 +40,7 @@ interface InstagramAccount {
   auth_type: InstagramAuthType;
   is_logged_in: boolean;
   is_monitoring: boolean;
+  working: boolean;
   created_at: string;
   last_activity?: string;
 }
@@ -64,6 +68,8 @@ const initialFormData: AddAccountFormData = {
 };
 
 export function InstagramAccountManager() {
+  const [managingAccount, setManagingAccount] = useState<InstagramAccount | null>(null);
+  const [isManageModalOpen, setIsManageModalOpen] = useState(false);
   // Estados locais
   const [accounts, setAccounts] = useState<InstagramAccount[]>([]);
   const [loading, setLoading] = useState(true);
@@ -120,6 +126,25 @@ export function InstagramAccountManager() {
       });
       if (!response.ok) {
         throw new Error('Erro ao deletar conta');
+      }
+      await loadAccounts(); // Recarregar lista
+    } catch (err) {
+      throw err;
+    }
+  };
+
+  const updateAccount = async (accountId: string, data: Partial<InstagramAccount>) => {
+    try {
+      const response = await fetch(`/api/instagram-accounts/${accountId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Erro ao atualizar conta');
       }
       await loadAccounts(); // Recarregar lista
     } catch (err) {
@@ -250,6 +275,27 @@ export function InstagramAccountManager() {
     }
   };
 
+  const handleManageAccount = (account: InstagramAccount) => {
+    setManagingAccount(account);
+    setIsManageModalOpen(true);
+  };
+
+  const handleAccountUpdate = async (accountId: string, data: Partial<InstagramAccount>) => {
+    try {
+      await updateAccount(accountId, data);
+      // Recarregar a lista de contas após a atualização
+      // A lista será atualizada automaticamente pelo hook useInstagramAccountsCRUD
+    } catch (error) {
+      console.error('Erro ao atualizar conta:', error);
+      throw error;
+    }
+  };
+
+  const handleCloseManageModal = () => {
+    setIsManageModalOpen(false);
+    setManagingAccount(null);
+  };
+
   const handleLoginAccount = async (accountId: string) => {
     const account = accounts.find(acc => acc.id === accountId);
     if (!account) return;
@@ -272,7 +318,19 @@ export function InstagramAccountManager() {
       }
     } catch (error) {
       console.error('Erro ao fazer logout:', error);
-      setError('Erro ao fazer logout');
+    }
+  };
+
+  const handleToggleWorking = async (accountId: string) => {
+    const account = accounts.find(acc => acc.id === accountId);
+    if (!account) return;
+
+    try {
+      await updateAccount(accountId, { working: !account.working });
+      await loadAccounts(); // Recarregar a lista para refletir as mudanças
+    } catch (error) {
+      console.error('Erro ao alterar status de trabalho:', error);
+      setError('Erro ao alterar status de trabalho');
     }
   };
 
@@ -318,6 +376,7 @@ export function InstagramAccountManager() {
   };
 
   return (
+    <>
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
@@ -527,40 +586,31 @@ export function InstagramAccountManager() {
                     </div>
                     
                     <div className="flex items-center gap-1">
-                      {account.id !== activeAccount?.id && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => switchAccount(account.id)}
-                        >
-                          Ativar
-                        </Button>
-                      )}
-                      
-                      {account.is_logged_in ? (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleLogoutAccount(account.id)}
-                        >
-                          <LogOut className="w-4 h-4" />
-                        </Button>
-                      ) : (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleLoginAccount(account.id)}
-                        >
-                          <LogIn className="w-4 h-4" />
-                        </Button>
-                      )}
+                      <Button
+                        size="sm"
+                        variant="default"
+                        onClick={() => handleManageAccount(account)}
+                      >
+                        <Settings className="w-4 h-4 mr-1" />
+                        Gerenciar
+                      </Button>
                       
                       <Button
                         size="sm"
-                        variant="outline"
-                        onClick={() => refreshStatus(account.id)}
+                        variant={account.working ? "secondary" : "outline"}
+                        onClick={() => handleToggleWorking(account.id)}
                       >
-                        <RefreshCw className="w-4 h-4" />
+                        {account.working ? (
+                          <>
+                            <Pause className="w-4 h-4 mr-1" />
+                            Pausar
+                          </>
+                        ) : (
+                          <>
+                            <Play className="w-4 h-4 mr-1" />
+                            Iniciar
+                          </>
+                        )}
                       </Button>
                       
                       <Button
@@ -598,5 +648,16 @@ export function InstagramAccountManager() {
         )}
       </CardContent>
     </Card>
+    
+    {/* Modal de Gerenciamento de Conta */}
+    {managingAccount && (
+      <AccountManagementModal
+        account={managingAccount}
+        isOpen={isManageModalOpen}
+        onClose={handleCloseManageModal}
+        onAccountUpdate={handleAccountUpdate}
+      />
+    )}
+  </>
   );
 }

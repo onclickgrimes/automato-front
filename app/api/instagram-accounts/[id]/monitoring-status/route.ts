@@ -3,9 +3,9 @@ import { createRouteHandlerSupabaseClient } from '@/lib/supabase/route-handler';
 import { instagramAccountsService } from '@/lib/services/instagram-accounts';
 
 interface RouteParams {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }
 
 // PUT /api/instagram-accounts/[id]/monitoring-status - Atualizar status de monitoramento
@@ -22,7 +22,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    const { id } = params;
+    const { id } = await params;
 
     // Verificar se a conta existe e pertence ao usuário
     const existingAccount = await instagramAccountsService.getById(id);

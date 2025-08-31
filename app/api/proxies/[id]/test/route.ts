@@ -40,7 +40,7 @@ async function testProxyConnectivity(proxy: any): Promise<{
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const supabase = await createClient()
@@ -55,11 +55,12 @@ export async function POST(
       )
     }
 
+    const { id } = await params
     // Buscar o proxy
     const { data: proxy, error: proxyError } = await supabase
       .from('proxies')
       .select('*')
-      .eq('id', params.id)
+      .eq('id', id)
       .eq('user_id', session.user.id)
       .single()
 
@@ -106,7 +107,7 @@ export async function POST(
     const { data: updatedProxy, error: updateError } = await supabase
       .from('proxies')
       .update(updateData)
-      .eq('id', params.id)
+      .eq('id', id)
       .eq('user_id', session.user.id)
       .select()
       .single()

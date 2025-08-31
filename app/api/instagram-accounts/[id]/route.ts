@@ -5,7 +5,7 @@ import { UpdateInstagramAccountData } from '@/lib/types/instagram-accounts';
 // GET /api/instagram-accounts/[id] - Buscar conta específica
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const supabase = await createRouteHandlerSupabaseClient();
@@ -19,7 +19,7 @@ export async function GET(
       );
     }
 
-    const { id } = params;
+    const { id } = await params;
 
     // Buscar conta específica
     const { data, error } = await supabase
@@ -53,7 +53,7 @@ export async function GET(
 // PUT /api/instagram-accounts/[id] - Atualizar conta
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const supabase = await createRouteHandlerSupabaseClient();
@@ -67,7 +67,7 @@ export async function PUT(
       );
     }
 
-    const { id } = params;
+    const { id } = await params;
     const body = await request.json();
 
     // Verificar se a conta existe e pertence ao usuário
@@ -147,7 +147,7 @@ export async function PUT(
 // DELETE /api/instagram-accounts/[id] - Excluir conta
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const supabase = await createRouteHandlerSupabaseClient();
@@ -161,7 +161,7 @@ export async function DELETE(
       );
     }
 
-    const { id } = params;
+    const { id } = await params;
 
     // Verificar se a conta existe e pertence ao usuário
     const { data: existingAccount, error: checkError } = await supabase
