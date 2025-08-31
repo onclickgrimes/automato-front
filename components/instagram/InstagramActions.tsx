@@ -1,8 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useInstagram } from '../../lib/hooks/useInstagram';
-import { useInstagramActions } from '../../lib/hooks/useInstagram';
+// Instagram hooks removidos - componente em modo mock
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
@@ -17,8 +16,13 @@ interface InstagramActionsProps {
 }
 
 export function InstagramActions({ className }: InstagramActionsProps) {
-  const { state, getActiveAccount } = useInstagram();
-  const { executeActions, isExecuting, currentAction, progress } = useInstagramActions();
+  // Hooks removidos - dados mockados
+  const state = { accounts: [], activeAccountId: null };
+  const getActiveAccount = () => null;
+  const executeActions = async () => {};
+  const isExecuting = false;
+  const currentAction = null;
+  const progress = 0;
   
   const activeAccount = getActiveAccount();
   // Estados dos formulários

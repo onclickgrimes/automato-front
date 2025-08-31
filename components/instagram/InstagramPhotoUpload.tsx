@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef } from 'react';
-import { useInstagram } from '../../lib/hooks/useInstagram';
+// Instagram hooks removidos - componente em modo mock
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
@@ -12,7 +12,9 @@ interface InstagramPhotoUploadProps {
 }
 
 export function InstagramPhotoUpload({ className }: InstagramPhotoUploadProps) {
-  const { state, postPhoto } = useInstagram();
+  // Hooks removidos - dados mockados
+  const state = { accounts: [], activeAccountId: null };
+  const postPhoto = async () => {};
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [form, setForm] = useState({
     imagePath: '',

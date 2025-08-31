@@ -1,7 +1,6 @@
 'use client';
 
-import { useInstagram } from '../../lib/hooks/useInstagram';
-import { useInstagramStats } from '../../lib/hooks/useInstagram';
+// Instagram hooks removidos - componente em modo mock
 import { Card } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
@@ -16,8 +15,11 @@ interface InstagramDashboardProps {
 }
 
 export function InstagramDashboard({ className }: InstagramDashboardProps) {
-  const { state, getActiveAccount, switchAccount } = useInstagram();
-  const { stats } = useInstagramStats();
+  // Hooks removidos - dados mockados
+  const state = { accounts: [], activeAccountId: null };
+  const getActiveAccount = () => null;
+  const switchAccount = async () => {};
+  const stats = { totalAccounts: 0, activeAccounts: 0, totalActions: 0, todayActions: 0 };
   
   const activeAccount = getActiveAccount();
   const activeStats = activeAccount ? stats[activeAccount.id] : null;

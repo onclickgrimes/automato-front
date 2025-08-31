@@ -176,13 +176,27 @@ Todas as tabelas possuem políticas RLS configuradas para garantir que:
   - Índices otimizados para performance
   - Triggers automáticos para updated_at
 
-### APIs Implementadas
-- `POST /api/instagram/login`: Login em contas do Instagram
-- `POST /api/instagram/logout`: Logout de contas
-- `GET /api/instagram/status`: Status das contas
-- `POST /api/instagram/actions`: Execução de ações (like, comment, follow, etc.)
-- `POST /api/instagram/monitor`: Controle de monitoramento
-- `GET /api/instagram/monitor`: Busca de mensagens monitoradas
+### Modo Mock/Simulação
+**Arquitetura**: Frontend (Next.js) → Serviço Mock Local → Banco de Dados (Supabase)
+
+**Funcionalidades Simuladas**:
+- `Login/Logout`: Simulação de autenticação em contas do Instagram
+- `Status`: Verificação simulada do status das contas
+- `Like`: Simulação de curtidas em posts
+- `Comment`: Simulação de comentários em posts
+- `Message`: Simulação de mensagens diretas
+- `Photo Upload`: Simulação de publicação de fotos
+- `Follow/Unfollow`: Simulação de seguir/parar de seguir usuários
+- `Monitor`: Simulação de monitoramento de mensagens
+- `Account Management`: Gerenciamento completo de múltiplas contas
+
+**Características do Mock**:
+- Delay simulado de 1 segundo para simular latência de rede
+- Respostas sempre bem-sucedidas com dados fictícios
+- Contas mantidas em memória durante a sessão
+- Todas as ações registradas com timestamps
+- Suporte completo a múltiplas contas mantido
+- Dados persistidos no Supabase para futuras implementações
 
 ## Políticas RLS Implementadas
 

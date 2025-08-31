@@ -27,8 +27,16 @@ import {
   LogIn,
   LogOut
 } from 'lucide-react';
-import { useInstagram } from '@/lib/hooks/useInstagram';
-import { InstagramLoginRequest, InstagramAuthType } from '@/lib/types/instagram';
+// Instagram hooks removidos - componente em modo mock
+// Tipos locais para substituir os tipos removidos
+type InstagramAuthType = 'username_password' | 'session_cookie' | 'auth_token';
+type InstagramLoginRequest = {
+  username: string;
+  password?: string;
+  sessionCookie?: string;
+  authToken?: string;
+  authType: InstagramAuthType;
+};
 
 interface AddAccountFormData {
   username: string;
@@ -41,20 +49,19 @@ const initialFormData: AddAccountFormData = {
   username: '',
   password: '',
   cookies: '',
-  authType: 'credentials'
+  authType: 'username_password'
 };
 
 export function InstagramAccountManager() {
-  const { 
-    state, 
-    addAccount, 
-    removeAccount, 
-    switchAccount, 
-    getActiveAccount,
-    login,
-    logout,
-    refreshStatus
-  } = useInstagram();
+  // Hooks removidos - dados mockados
+  const state = { accounts: [], activeAccountId: null };
+  const addAccount = async () => {};
+  const removeAccount = async () => {};
+  const login = async () => {};
+  const logout = async () => {};
+  const switchAccount = async () => {};
+  const getActiveAccount = () => null;
+  const refreshStatus = async () => {};
   
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [formData, setFormData] = useState<AddAccountFormData>(initialFormData);

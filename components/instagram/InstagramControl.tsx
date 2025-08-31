@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useInstagram } from '../../lib/hooks/useInstagram';
+// Instagram hooks removidos - componente em modo mock
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
@@ -16,16 +16,17 @@ interface InstagramControlProps {
 }
 
 export function InstagramControl({ className }: InstagramControlProps) {
-  const { 
-    state, 
-    login, 
-    logout, 
-    startMonitoring, 
-    stopMonitoring, 
-    refreshStatus,
-    getActiveAccount,
-    switchAccount
-  } = useInstagram();
+  // Hooks removidos - dados mockados
+  const state = { accounts: [], activeAccountId: null };
+  const addAccount = async () => {};
+  const removeAccount = async () => {};
+  const login = async () => {};
+  const logout = async () => {};
+  const startMonitoring = async () => {};
+  const stopMonitoring = async () => {};
+  const refreshStatus = async () => {};
+  const getActiveAccount = () => null;
+  const switchAccount = async () => {};
   const [credentials, setCredentials] = useState({ username: '', password: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showAccountManager, setShowAccountManager] = useState(false);
