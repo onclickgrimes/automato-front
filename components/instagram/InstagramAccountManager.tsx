@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -27,9 +27,20 @@ import {
   LogIn,
   LogOut
 } from 'lucide-react';
-// Instagram hooks removidos - componente em modo mock
-// Tipos locais para substituir os tipos removidos
-type InstagramAuthType = 'username_password' | 'session_cookie' | 'auth_token';
+
+// Tipos locais simplificados
+type InstagramAuthType = 'credentials' | 'cookie';
+
+interface InstagramAccount {
+  id: string;
+  username: string;
+  auth_type: InstagramAuthType;
+  is_logged_in: boolean;
+  is_monitoring: boolean;
+  created_at: string;
+  last_activity?: string;
+}
+
 type InstagramLoginRequest = {
   username: string;
   password?: string;
@@ -49,19 +60,104 @@ const initialFormData: AddAccountFormData = {
   username: '',
   password: '',
   cookies: '',
-  authType: 'username_password'
+  authType: 'credentials'
 };
 
 export function InstagramAccountManager() {
-  // Hooks removidos - dados mockados
-  const state = { accounts: [], activeAccountId: null };
-  const addAccount = async () => {};
-  const removeAccount = async () => {};
-  const login = async () => {};
-  const logout = async () => {};
-  const switchAccount = async () => {};
-  const getActiveAccount = () => null;
-  const refreshStatus = async () => {};
+  // Estados locais
+  const [accounts, setAccounts] = useState<InstagramAccount[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [activeAccountId, setActiveAccountId] = useState<string | null>(null);
+
+  // Funções para chamadas diretas às APIs
+  const loadAccounts = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch('/api/instagram-accounts');
+      if (!response.ok) {
+        throw new Error('Erro ao carregar contas');
+      }
+      const result = await response.json();
+      if (result.success) {
+        setAccounts(result.data || []);
+        setError(null);
+      } else {
+        throw new Error(result.error || 'Erro ao carregar contas');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erro desconhecido');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const createAccount = async (accountData: any) => {
+    try {
+      const response = await fetch('/api/instagram-accounts', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(accountData),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Erro ao criar conta');
+      }
+      
+      await loadAccounts(); // Recarregar lista
+    } catch (err) {
+      throw err;
+    }
+  };
+
+  const deleteAccount = async (accountId: string) => {
+    try {
+      const response = await fetch(`/api/instagram-accounts/${accountId}`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) {
+        throw new Error('Erro ao deletar conta');
+      }
+      await loadAccounts(); // Recarregar lista
+    } catch (err) {
+      throw err;
+    }
+  };
+
+  const updateLoginStatus = async (accountId: string, isLoggedIn: boolean) => {
+    try {
+      const response = await fetch(`/api/instagram-accounts/${accountId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ is_logged_in: isLoggedIn }),
+      });
+      if (!response.ok) {
+        throw new Error('Erro ao atualizar status de login');
+      }
+      await loadAccounts(); // Recarregar lista
+    } catch (err) {
+      throw err;
+    }
+  };
+
+  // Carregar contas ao montar o componente
+  useEffect(() => {
+    loadAccounts();
+  }, []);
+  
+  const getActiveAccount = () => {
+    if (!Array.isArray(accounts)) return null;
+    return accounts.find(acc => acc.id === activeAccountId) || null;
+  };
+  
+  const switchAccount = (accountId: string) => {
+    setActiveAccountId(accountId);
+  };
   
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [formData, setFormData] = useState<AddAccountFormData>(initialFormData);
@@ -121,24 +217,17 @@ export function InstagramAccountManager() {
     setFormError(null);
 
     try {
-      const loginRequest = {
+      const accountData = {
         username: formData.username,
-        authType: formData.authType,
-        accountId: `account_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        ...(formData.authType === 'credentials' 
-          ? { password: formData.password }
-          : { cookies: formData.cookies })
+        auth_type: formData.authType,
+        ...(formData.authType === 'credentials' ? { password: formData.password } : { cookies: formData.cookies })
       };
 
-      const result = await addAccount(loginRequest as any);
-      
-      if (result.success) {
-        setFormData(initialFormData);
-        setIsAddDialogOpen(false);
-      } else {
-        setFormError(result.error || result.message || 'Erro ao adicionar conta');
-      }
+      await createAccount(accountData);
+      setFormData(initialFormData);
+      setIsAddDialogOpen(false);
     } catch (error) {
+      console.error('Erro ao adicionar conta:', error);
       setFormError('Erro inesperado ao adicionar conta');
     } finally {
       setIsSubmitting(false);
@@ -147,25 +236,48 @@ export function InstagramAccountManager() {
 
   const handleRemoveAccount = async (accountId: string) => {
     if (confirm('Tem certeza que deseja remover esta conta?')) {
-      await removeAccount(accountId);
+      try {
+        await deleteAccount(accountId);
+        
+        // Se a conta ativa foi removida, limpar o estado
+        if (activeAccountId === accountId) {
+          setActiveAccountId(null);
+        }
+      } catch (error) {
+        console.error('Erro ao remover conta:', error);
+        setError('Erro ao remover conta');
+      }
     }
   };
 
   const handleLoginAccount = async (accountId: string) => {
-    const account = state.accounts.find(acc => acc.id === accountId);
+    const account = accounts.find(acc => acc.id === accountId);
     if (!account) return;
 
-    // Para reconectar, precisaríamos das credenciais originais
-    // Por enquanto, apenas tentamos fazer login novamente
-    await refreshStatus(accountId);
+    try {
+      await updateLoginStatus(accountId, true);
+    } catch (error) {
+      console.error('Erro ao fazer login:', error);
+      setError('Erro ao fazer login');
+    }
   };
 
   const handleLogoutAccount = async (accountId: string) => {
-    await logout(accountId);
+    try {
+      await updateLoginStatus(accountId, false);
+      
+      // Se a conta ativa foi deslogada, limpar o estado
+      if (activeAccountId === accountId) {
+        setActiveAccountId(null);
+      }
+    } catch (error) {
+      console.error('Erro ao fazer logout:', error);
+      setError('Erro ao fazer logout');
+    }
   };
 
-  const getAccountStatusBadge = (account: typeof state.accounts[0]) => {
-    if (account.isLoggedIn) {
+  const getAccountStatusBadge = (account: any) => {
+    if (account.is_logged_in) {
       return (
         <Badge variant="default" className="bg-green-500">
           <CheckCircle className="w-3 h-3 mr-1" />
@@ -335,7 +447,7 @@ export function InstagramAccountManager() {
       </CardHeader>
       
       <CardContent>
-        {state.accounts.length === 0 ? (
+        {(!Array.isArray(accounts) || accounts.length === 0) ? (
           <div className="text-center py-8">
             <User className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
             <h3 className="text-lg font-medium mb-2">Nenhuma conta conectada</h3>
@@ -375,8 +487,8 @@ export function InstagramAccountManager() {
 
             {/* Lista de Contas */}
             <div className="space-y-3">
-              <h4 className="font-medium">Todas as Contas ({state.accounts.length})</h4>
-              {state.accounts.map((account) => (
+              <h4 className="font-medium">Todas as Contas ({Array.isArray(accounts) ? accounts.length : 0})</h4>
+                {Array.isArray(accounts) && accounts.map((account) => (
                 <div 
                   key={account.id} 
                   className={`p-3 border rounded-lg transition-colors ${
@@ -394,8 +506,8 @@ export function InstagramAccountManager() {
                         <p className="font-medium">@{account.username}</p>
                         <div className="flex items-center gap-2 mt-1">
                           {getAccountStatusBadge(account)}
-                          {getAuthTypeBadge(account.authType)}
-                          {account.isMonitoring && (
+                          {getAuthTypeBadge(account.auth_type)}
+                          {account.is_monitoring && (
                             <Badge variant="secondary">
                               <Eye className="w-3 h-3 mr-1" />
                               Monitorando
@@ -416,7 +528,7 @@ export function InstagramAccountManager() {
                         </Button>
                       )}
                       
-                      {account.isLoggedIn ? (
+                      {account.is_logged_in ? (
                         <Button
                           size="sm"
                           variant="outline"
@@ -463,16 +575,16 @@ export function InstagramAccountManager() {
           </div>
         )}
         
-        {state.isLoading && (
+        {loading && (
           <div className="flex items-center justify-center py-4">
             <RefreshCw className="w-4 h-4 animate-spin mr-2" />
             <span className="text-sm text-muted-foreground">Carregando...</span>
           </div>
         )}
         
-        {state.error && (
+        {error && (
           <Alert variant="destructive" className="mt-4">
-            <AlertDescription>{state.error}</AlertDescription>
+            <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
       </CardContent>

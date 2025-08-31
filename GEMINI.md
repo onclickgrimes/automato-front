@@ -1,127 +1,126 @@
-# Documentação do Banco de Dados - Automato SaaS
-
-## Schema do Banco de Dados Supabase
-
-### Migrações Recentes
-
-#### 2025-01-20: Correção do Constraint auth_type
-- **Arquivo**: `fix_auth_type_constraint.sql`
-- **Problema**: O constraint da tabela `instagram_accounts` só aceitava 'credentials' e mas o frontend estava enviando 'cookie'
-- **Solução**: Atualizado o constraint para aceitar tanto 'cookie' quanto 'cookies'
-- **Comando**: `ALTER TABLE instagram_accounts ADD CONSTRAINT instagram_accounts_auth_type_check CHECK (auth_type IN ('credentials', 'cookie'));`
 
 ### Tabelas Criadas
+-- WARNING: This schema is for context only and is not meant to be run.
+-- Table order and constraints may not be valid for execution.
 
-#### 1. `public.profiles`
-- **Descrição**: Perfis dos usuários com relacionamento one-to-one com `auth.users`
-- **Campos**:
-  - `id` (UUID, PK): Referência para `auth.users(id)`
-  - `email` (TEXT): Email do usuário
-  - `full_name` (TEXT): Nome completo
-  - `avatar_url` (TEXT): URL do avatar
-  - `created_at`, `updated_at` (TIMESTAMP)
-
-#### 2. `public.social_accounts`
-- **Descrição**: Contas de redes sociais dos usuários
-- **Campos**:
-  - `id` (UUID, PK): Identificador único
-  - `user_id` (UUID, FK): Referência para `auth.users(id)`
-  - `type` (ENUM): 'instagram', 'whatsapp', 'facebook'
-  - `username` (TEXT): Nome de usuário da conta social
-  - `display_name` (TEXT): Nome de exibição
-  - `session_data` (JSONB): Dados de sessão para automação
-  - `is_active` (BOOLEAN): Status da conta
-  - `last_login` (TIMESTAMP): Último login
-  - `created_at`, `updated_at` (TIMESTAMP)
-
-#### 3. `public.routines`
-- **Descrição**: Rotinas de automação dos usuários
-- **Campos**:
-  - `id` (UUID, PK): Identificador único
-  - `user_id` (UUID, FK): Referência para `auth.users(id)`
-  - `name` (TEXT): Nome da rotina
-  - `description` (TEXT): Descrição da rotina
-  - `trigger_type` (ENUM): 'cron', 'manual', 'event'
-  - `trigger_config` (JSONB): Configurações do trigger
-  - `actions` (JSONB): Array de ações a executar
-  - `is_active` (BOOLEAN): Status da rotina
-  - `last_executed`, `next_execution` (TIMESTAMP)
-  - `created_at`, `updated_at` (TIMESTAMP)
-
-#### 4. `public.proxies`
-- **Descrição**: Proxies dos usuários para automação
-- **Campos**:
-  - `id` (UUID, PK): Identificador único
-  - `user_id` (UUID, FK): Referência para `auth.users(id)`
-  - `name` (TEXT): Nome do proxy
-  - `address` (TEXT): Endereço do proxy
-  - `port` (INTEGER): Porta do proxy
-
-#### 5. `public.instagram_accounts`
-- **Descrição**: Contas do Instagram para automação com múltiplas contas
-- **Campos**:
-  - `id` (UUID, PK): Identificador único
-  - `user_id` (UUID, FK): Referência para `auth.users(id)`
-  - `username` (VARCHAR): Nome de usuário do Instagram
-  - `auth_type` (VARCHAR): Tipo de autenticação ('credentials', 'cookies')
-  - `is_logged_in` (BOOLEAN): Status de login
-  - `is_monitoring` (BOOLEAN): Status de monitoramento
-  - `login_time`, `logout_time` (TIMESTAMPTZ): Timestamps de login/logout
-  - `monitor_started_at`, `monitor_stopped_at` (TIMESTAMPTZ): Timestamps de monitoramento
-  - `monitor_keywords` (TEXT[]): Palavras-chave para monitoramento
-  - `auto_reply_enabled` (BOOLEAN): Resposta automática habilitada
-  - `auto_reply_message` (TEXT): Mensagem de resposta automática
-  - `profile_data` (JSONB): Dados do perfil do Instagram
-  - `created_at`, `updated_at` (TIMESTAMPTZ)
-
-#### 6. `public.instagram_actions`
-- **Descrição**: Registro de ações executadas no Instagram
-- **Campos**:
-  - `id` (UUID, PK): Identificador único
-  - `user_id` (UUID, FK): Referência para `auth.users(id)`
-  - `account_id` (UUID, FK): Referência para `instagram_accounts(id)`
-  - `action_type` (VARCHAR): Tipo de ação ('like', 'comment', 'follow', 'unfollow', 'upload', 'message')
-  - `target_url` (TEXT): URL do alvo da ação
-  - `target_username` (VARCHAR): Username do alvo
-  - `comment_text` (TEXT): Texto do comentário
-  - `result` (JSONB): Resultado da ação
-  - `created_at` (TIMESTAMPTZ)
-
-#### 7. `public.instagram_messages`
-- **Descrição**: Mensagens monitoradas do Instagram
-- **Campos**:
-  - `id` (UUID, PK): Identificador único
-  - `user_id` (UUID, FK): Referência para `auth.users(id)`
-  - `account_id` (UUID, FK): Referência para `instagram_accounts(id)`
-  - `sender_username` (VARCHAR): Username do remetente
-  - `message_text` (TEXT): Texto da mensagem
-  - `message_id` (VARCHAR): ID da mensagem no Instagram
-  - `is_read` (BOOLEAN): Status de leitura
-  - `contains_keyword` (BOOLEAN): Contém palavra-chave
-  - `matched_keyword` (VARCHAR): Palavra-chave encontrada
-  - `auto_replied` (BOOLEAN): Resposta automática enviada
-  - `reply_message` (TEXT): Mensagem de resposta
-  - `received_at`, `replied_at` (TIMESTAMPTZ)
-  - `username`, `password` (TEXT): Credenciais do proxy
-  - `proxy_type` (TEXT): Tipo do proxy (http, https, socks5)
-  - `is_active` (BOOLEAN): Status do proxy
-  - `last_tested` (TIMESTAMP): Último teste
-  - `response_time` (INTEGER): Tempo de resposta em ms
-  - `created_at`, `updated_at` (TIMESTAMP)
-
-#### 5. `public.execution_logs`
-- **Descrição**: Logs de execução das rotinas e ações
-- **Campos**:
-  - `id` (UUID, PK): Identificador único
-  - `user_id` (UUID, FK): Referência para `auth.users(id)`
-  - `routine_id` (UUID, FK): Referência para `routines(id)`
-  - `social_account_id` (UUID, FK): Referência para `social_accounts(id)`
-  - `action_type` (TEXT): Tipo da ação executada
-  - `status` (TEXT): Status da execução (pending, running, success, error)
-  - `result` (JSONB): Resultado da execução
-  - `error_message` (TEXT): Mensagem de erro se houver
-  - `started_at`, `completed_at` (TIMESTAMP)
-  - `created_at` (TIMESTAMP)
+CREATE TABLE public.execution_logs (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  routine_id uuid,
+  social_account_id uuid,
+  action_type text NOT NULL,
+  status text NOT NULL DEFAULT 'pending'::text,
+  result jsonb DEFAULT '{}'::jsonb,
+  error_message text,
+  started_at timestamp with time zone DEFAULT now(),
+  completed_at timestamp with time zone,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT execution_logs_pkey PRIMARY KEY (id),
+  CONSTRAINT execution_logs_social_account_id_fkey FOREIGN KEY (social_account_id) REFERENCES public.instagram_accounts(id),
+  CONSTRAINT execution_logs_routine_id_fkey FOREIGN KEY (routine_id) REFERENCES public.routines(id),
+  CONSTRAINT execution_logs_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
+);
+CREATE TABLE public.instagram_accounts (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  username character varying NOT NULL,
+  auth_type character varying NOT NULL CHECK (auth_type::text = ANY (ARRAY['credentials'::character varying, 'cookie'::character varying]::text[])),
+  is_logged_in boolean DEFAULT false,
+  is_monitoring boolean DEFAULT false,
+  login_time timestamp with time zone,
+  logout_time timestamp with time zone,
+  monitor_started_at timestamp with time zone,
+  monitor_stopped_at timestamp with time zone,
+  monitor_keywords ARRAY,
+  auto_reply_enabled boolean DEFAULT false,
+  auto_reply_message text,
+  profile_data jsonb,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT instagram_accounts_pkey PRIMARY KEY (id),
+  CONSTRAINT instagram_accounts_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
+);
+CREATE TABLE public.instagram_actions (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  account_id uuid NOT NULL,
+  action_type character varying NOT NULL CHECK (action_type::text = ANY (ARRAY['like'::character varying, 'comment'::character varying, 'follow'::character varying, 'unfollow'::character varying, 'upload'::character varying, 'message'::character varying]::text[])),
+  target_url text,
+  target_username character varying,
+  comment_text text,
+  result jsonb,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT instagram_actions_pkey PRIMARY KEY (id),
+  CONSTRAINT instagram_actions_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.instagram_accounts(id),
+  CONSTRAINT instagram_actions_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
+);
+CREATE TABLE public.instagram_messages (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  account_id uuid NOT NULL,
+  sender_username character varying NOT NULL,
+  message_text text NOT NULL,
+  message_id character varying,
+  is_read boolean DEFAULT false,
+  contains_keyword boolean DEFAULT false,
+  matched_keyword character varying,
+  auto_replied boolean DEFAULT false,
+  reply_message text,
+  received_at timestamp with time zone DEFAULT now(),
+  replied_at timestamp with time zone,
+  CONSTRAINT instagram_messages_pkey PRIMARY KEY (id),
+  CONSTRAINT instagram_messages_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
+  CONSTRAINT instagram_messages_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.instagram_accounts(id)
+);
+CREATE TABLE public.profiles (
+  id uuid NOT NULL,
+  email text,
+  full_name text,
+  avatar_url text,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT profiles_pkey PRIMARY KEY (id),
+  CONSTRAINT profiles_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id)
+);
+CREATE TABLE public.proxies (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  name text NOT NULL,
+  address text NOT NULL,
+  port integer NOT NULL,
+  username text,
+  password text,
+  proxy_type text DEFAULT 'http'::text,
+  is_active boolean DEFAULT true,
+  status USER-DEFINED DEFAULT 'inactive'::proxy_status,
+  last_tested timestamp with time zone,
+  response_time integer,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT proxies_pkey PRIMARY KEY (id),
+  CONSTRAINT proxies_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
+);
+CREATE TABLE public.routines (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  name text NOT NULL,
+  description text,
+  trigger_type USER-DEFINED NOT NULL DEFAULT 'manual'::trigger_type,
+  trigger_config jsonb DEFAULT '{}'::jsonb,
+  actions jsonb NOT NULL DEFAULT '[]'::jsonb,
+  is_active boolean DEFAULT true,
+  status USER-DEFINED DEFAULT 'active'::routine_status,
+  social_account_id uuid,
+  proxy_id uuid,
+  last_executed timestamp with time zone,
+  next_execution timestamp with time zone,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT routines_pkey PRIMARY KEY (id),
+  CONSTRAINT routines_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
+  CONSTRAINT routines_social_account_id_fkey FOREIGN KEY (social_account_id) REFERENCES public.instagram_accounts(id),
+  CONSTRAINT routines_proxy_id_fkey FOREIGN KEY (proxy_id) REFERENCES public.proxies(id)
+);
 
 ### Políticas RLS (Row Level Security)
 
@@ -135,114 +134,3 @@ Todas as tabelas possuem políticas RLS configuradas para garantir que:
 1. **`update_updated_at_column()`**: Atualiza automaticamente o campo `updated_at`
 2. **`handle_new_user()`**: Cria automaticamente um perfil quando um usuário se registra
 3. **Triggers**: Aplicados em todas as tabelas para manter `updated_at` atualizado
-
-### Índices
-
-Índices criados para otimizar consultas frequentes:
-- Por `user_id` em todas as tabelas
-- Por `type` em `social_accounts`
-- Por `is_active` em `routines` e `proxies`
-- Por `status` em `execution_logs`
-
-## Como Aplicar as Migrações
-
-### Migração Principal
-1. Acesse o painel do Supabase
-2. Vá para a seção "SQL Editor"
-3. Cole o conteúdo do arquivo `supabase_migration.sql`
-4. Execute a migração
-5. Verifique se todas as tabelas foram criadas corretamente
-
-### Políticas RLS Avançadas
-1. Após aplicar a migração principal, execute o arquivo `supabase_rls_policies.sql`
-2. Este arquivo contém políticas RLS mais específicas e otimizadas
-3. Inclui funções de segurança adicionais e índices de performance
-4. Configura triggers de auditoria para monitoramento
-
-## Migrações Aplicadas
-
-### Migração Instagram (2024-01-20)
-- **Arquivo**: `instagram_migration.sql`
-- **Descrição**: Implementação completa do sistema de múltiplas contas do Instagram
-- **Tabelas Criadas**:
-  - `instagram_accounts`: Gerenciamento de múltiplas contas
-  - `instagram_actions`: Log de ações executadas
-  - `instagram_messages`: Monitoramento de mensagens
-- **Recursos**:
-  - Suporte a autenticação por credenciais e cookies
-  - Sistema de monitoramento de mensagens com palavras-chave
-  - Resposta automática configurável
-  - Políticas RLS para segurança
-  - Índices otimizados para performance
-  - Triggers automáticos para updated_at
-
-### Modo Mock/Simulação
-**Arquitetura**: Frontend (Next.js) → Serviço Mock Local → Banco de Dados (Supabase)
-
-**Funcionalidades Simuladas**:
-- `Login/Logout`: Simulação de autenticação em contas do Instagram
-- `Status`: Verificação simulada do status das contas
-- `Like`: Simulação de curtidas em posts
-- `Comment`: Simulação de comentários em posts
-- `Message`: Simulação de mensagens diretas
-- `Photo Upload`: Simulação de publicação de fotos
-- `Follow/Unfollow`: Simulação de seguir/parar de seguir usuários
-- `Monitor`: Simulação de monitoramento de mensagens
-- `Account Management`: Gerenciamento completo de múltiplas contas
-
-**Características do Mock**:
-- Delay simulado de 1 segundo para simular latência de rede
-- Respostas sempre bem-sucedidas com dados fictícios
-- Contas mantidas em memória durante a sessão
-- Todas as ações registradas com timestamps
-- Suporte completo a múltiplas contas mantido
-- Dados persistidos no Supabase para futuras implementações
-
-## Políticas RLS Implementadas
-
-### Profiles
-- `profiles_select_own`: Usuários visualizam apenas seu próprio perfil
-- `profiles_insert_own`: Inserção apenas durante criação automática
-- `profiles_update_own`: Usuários atualizam apenas seu próprio perfil
-- `profiles_delete_own`: Usuários deletam apenas seu próprio perfil
-
-### Social Accounts
-- `social_accounts_select_own`: Acesso apenas às próprias contas
-- `social_accounts_insert_own`: Criação apenas para si mesmo
-- `social_accounts_update_own`: Atualização apenas das próprias contas
-- `social_accounts_delete_own`: Exclusão apenas das próprias contas
-
-### Routines
-- `routines_select_own`: Visualização apenas das próprias rotinas
-- `routines_insert_own`: Criação apenas para contas sociais próprias
-- `routines_update_own`: Atualização com validação de propriedade
-- `routines_delete_own`: Exclusão apenas das próprias rotinas
-
-### Proxies
-- `proxies_select_own`: Acesso apenas aos próprios proxies
-- `proxies_insert_own`: Criação apenas para si mesmo
-- `proxies_update_own`: Atualização apenas dos próprios proxies
-- `proxies_delete_own`: Exclusão apenas se não estiver em uso por rotinas ativas
-
-### Execution Logs
-- `execution_logs_select_own`: Visualização apenas de logs próprios
-- `execution_logs_insert_own`: Inserção apenas para rotinas próprias
-- `execution_logs_update_restricted`: Atualizações bloqueadas
-- `execution_logs_delete_old`: Exclusão apenas de logs com mais de 90 dias
-
-## Funções de Segurança
-
-- `is_social_account_owner(UUID)`: Verifica propriedade de conta social
-- `is_routine_owner(UUID)`: Verifica propriedade de rotina
-- `is_proxy_owner(UUID)`: Verifica propriedade de proxy
-
-## Considerações de Segurança
-
-- Todas as tabelas possuem RLS (Row Level Security) habilitado
-- Políticas específicas garantem isolamento total entre usuários
-- Validações cruzadas impedem acesso não autorizado
-- Funções de segurança facilitam verificações de propriedade
-- Triggers de auditoria monitoram mudanças importantes
-- Índices otimizados para performance das políticas RLS
-- Logs antigos podem ser removidos automaticamente (90+ dias)
-- Proxies em uso por rotinas ativas não podem ser deletados
