@@ -43,7 +43,6 @@ interface InstagramAccount {
   auth_type: InstagramAuthType;
   is_logged_in: boolean;
   is_monitoring: boolean;
-  working: boolean;
   password?: string | null;
   cookie?: string | null;
   created_at: string;
@@ -90,6 +89,10 @@ export function InstagramAccountManager() {
   
   // Estado para controlar loading de contas específicas
   const [workingAccountId, setWorkingAccountId] = useState<string | null>(null);
+  const [isCheckingStatus, setIsCheckingStatus] = useState(false);
+  
+  // Estado para armazenar status das contas (verificado via API)
+  const [accountsStatus, setAccountsStatus] = useState<Record<string, boolean>>({});
 
   // Funções para chamadas diretas às APIs
   const loadAccounts = async () => {
@@ -204,8 +207,9 @@ export function InstagramAccountManager() {
     // Aplicar filtro de status
     if (statusFilter !== 'all') {
       filtered = filtered.filter(account => {
-        if (statusFilter === 'active') return account.working;
-        if (statusFilter === 'paused') return !account.working;
+        const isActive = accountsStatus[account.id] || false;
+        if (statusFilter === 'active') return isActive;
+        if (statusFilter === 'paused') return !isActive;
         return true;
       });
     }
@@ -223,10 +227,66 @@ export function InstagramAccountManager() {
     setFilteredAccounts(filtered);
   };
   
+  // Função para verificar status de todas as contas no backend
+  const checkAllAccountsStatus = async () => {
+    if (accounts.length === 0) return;
+    
+    setIsCheckingStatus(true);
+    try {
+      const statusPromises = accounts.map(async (account) => {
+        try {
+          const response = await fetch(`https://able-viable-elephant.ngrok-free.app/api/instagram/status/${account.username}`, {
+            method: 'GET',
+            headers: {
+              'ngrok-skip-browser-warning': 'true'
+            }
+          });
+
+          if (!response.ok) {
+            return { accountId: account.id, isActive: false };
+          }
+
+          const result = await response.json();
+          return {
+            accountId: account.id,
+            isActive: result.success === true && result.status === 'active'
+          };
+        } catch (error) {
+          console.error(`Erro ao verificar status da conta ${account.username}:`, error);
+          return { accountId: account.id, isActive: false };
+        }
+      });
+
+      const statusResults = await Promise.all(statusPromises);
+      
+      // Atualizar o estado local com os status das contas
+      const newAccountsStatus: Record<string, boolean> = {};
+      statusResults.forEach(({ accountId, isActive }) => {
+        newAccountsStatus[accountId] = isActive;
+      });
+      
+      setAccountsStatus(newAccountsStatus);
+      
+      // Recarregar contas para refletir as mudanças
+       await loadAccounts();
+     } catch (error) {
+       console.error('Erro ao verificar status das contas:', error);
+     } finally {
+       setIsCheckingStatus(false);
+     }
+   };
+
   // Carregar contas ao montar o componente
   useEffect(() => {
     loadAccounts();
   }, []);
+  
+  // Verificar status das contas após carregá-las
+  useEffect(() => {
+    if (accounts.length > 0) {
+      checkAllAccountsStatus();
+    }
+  }, [accounts.length]); // Executa quando o número de contas muda (após loadAccounts)
   
   // Aplicar filtros quando accounts, searchTerm, sortOrder ou statusFilter mudarem
   useEffect(() => {
@@ -303,7 +363,7 @@ export function InstagramAccountManager() {
       const accountData = {
         username: formData.username,
         auth_type: formData.authType,
-        ...(formData.authType === 'credentials' ? { password: formData.password } : { cookies: formData.cookies })
+        ...(formData.authType === 'credentials' ? { password: formData.password } : { cookie: formData.cookies })
       };
 
       await createAccount(accountData);
@@ -378,6 +438,27 @@ export function InstagramAccountManager() {
     }
   };
 
+  const checkAccountStatus = async (username: string) => {
+    try {
+      const response = await fetch(`https://able-viable-elephant.ngrok-free.app/api/instagram/status/${username}`, {
+        method: 'GET',
+        headers: {
+          'ngrok-skip-browser-warning': 'true'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`Erro ao verificar status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      return result;
+    } catch (error) {
+      console.error('Erro ao verificar status:', error);
+      return null;
+    }
+  };
+
   const handleToggleWorking = async (accountId: string) => {
     const account = accounts.find(acc => acc.id === accountId);
     if (!account) return;
@@ -387,10 +468,24 @@ export function InstagramAccountManager() {
 
     setWorkingAccountId(accountId);
 
-    // Se está tentando iniciar (working = false -> true)
-    if (!account.working) {
-      try {
-        setError(null);
+    try {
+      setError(null);
+      
+      // Verificar status atual no backend antes de iniciar/pausar
+      const statusResult = await checkAccountStatus(account.username);
+      
+      // Verificar status atual da conta
+      const currentStatus = accountsStatus[accountId] || false;
+      
+      // Se está tentando iniciar (status = false -> true)
+      if (!currentStatus) {
+        // Verificar se já está ativo no backend
+        if (statusResult && statusResult.isActive) {
+          // Se já está ativo no backend, apenas atualizar o estado local
+          setAccountsStatus(prev => ({ ...prev, [accountId]: true }));
+          setWorkingAccountId(null);
+          return;
+        }
         
         // Fazer requisição para o backend do ngrok para iniciar o puppeteer
         const response = await fetch('https://able-viable-elephant.ngrok-free.app/api/instagram/iniciar', {
@@ -403,7 +498,7 @@ export function InstagramAccountManager() {
             accountId: accountId,
             username: account.username,
             auth_type: account.auth_type,
-            ...(account.auth_type === 'credentials' ? { password: account.password } : { cookies: account.cookie })
+            ...(account.auth_type === 'credentials' ? { password: account.password } : { cookie: account.cookie })
           })
         });
 
@@ -414,32 +509,54 @@ export function InstagramAccountManager() {
         const result = await response.json();
         
         if (result.status === 'ok' || result.success) {
-          // Se o backend retornou ok, atualizar o campo working
-          await updateAccount(accountId, { working: true });
-          await loadAccounts();
+          // Se o backend retornou ok, atualizar o estado local
+          setAccountsStatus(prev => ({ ...prev, [accountId]: true }));
         } else {
           throw new Error(result.message || 'Erro ao iniciar conta no backend');
         }
-      } catch (error) {
-        console.error('Erro ao iniciar conta:', error);
-        setError(`Erro ao iniciar conta: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+      } else {
+        // Se está pausando (status = true -> false)
+        // Verificar se realmente está ativo no backend
+        if (statusResult && !statusResult.isActive) {
+          // Se já está inativo no backend, apenas atualizar o estado local
+          setAccountsStatus(prev => ({ ...prev, [accountId]: false }));
+          setWorkingAccountId(null);
+          return;
+        }
+        
+        // Fazer requisição para pausar no backend
+        const response = await fetch(`https://able-viable-elephant.ngrok-free.app/api/instagram/parar/${account.username}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'ngrok-skip-browser-warning': 'true'
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error(`Erro ao pausar no backend: ${response.status}`);
+        }
+
+        const result = await response.json();
+        
+        if (result.status === 'ok' || result.success) {
+          // Se o backend retornou ok, atualizar o estado local
+          setAccountsStatus(prev => ({ ...prev, [accountId]: false }));
+        } else {
+          throw new Error(result.message || 'Erro ao pausar conta no backend');
+        }
       }
-    } else {
-      // Se está pausando (working = true -> false), apenas atualizar localmente
-      try {
-        await updateAccount(accountId, { working: false });
-        await loadAccounts();
-      } catch (error) {
-        console.error('Erro ao pausar conta:', error);
-        setError('Erro ao pausar conta');
-      }
+    } catch (error) {
+      console.error('Erro ao alterar status da conta:', error);
+      setError(`Erro ao alterar status da conta: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
     }
     
     setWorkingAccountId(null);
   };
 
   const getAccountStatusBadge = (account: any) => {
-    if (account.working) {
+    const isActive = accountsStatus[account.id] || false;
+    if (isActive) {
       return (
         <Badge variant="default" className="bg-green-500">
           <CheckCircle className="w-3 h-3 mr-1" />
@@ -488,7 +605,17 @@ export function InstagramAccountManager() {
             <Settings className="w-5 h-5" />
             Gerenciar Contas Instagram
           </CardTitle>
-          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+          <div className="flex items-center gap-2">
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={checkAllAccountsStatus}
+              disabled={isCheckingStatus || accounts.length === 0}
+            >
+              <RefreshCw className={`w-4 h-4 mr-2 ${isCheckingStatus ? 'animate-spin' : ''}`} />
+              {isCheckingStatus ? 'Verificando...' : 'Atualizar Status'}
+            </Button>
+            <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
               <Button size="sm">
                 <Plus className="w-4 h-4 mr-2" />
@@ -615,6 +742,7 @@ export function InstagramAccountManager() {
               </div>
             </DialogContent>
           </Dialog>
+          </div>
         </div>
         
         {/* Controles de busca e filtro */}
@@ -740,16 +868,16 @@ export function InstagramAccountManager() {
                       
                       <Button
                         size="sm"
-                        variant={account.working ? "secondary" : "outline"}
+                        variant={(accountsStatus[account.id] || false) ? "secondary" : "outline"}
                         onClick={() => handleToggleWorking(account.id)}
                         disabled={workingAccountId === account.id}
                       >
                         {workingAccountId === account.id ? (
                           <>
                             <RefreshCw className="w-4 h-4 mr-1 animate-spin" />
-                            {account.working ? 'Pausando...' : 'Iniciando...'}
+                            {(accountsStatus[account.id] || false) ? 'Pausando...' : 'Iniciando...'}
                           </>
-                        ) : account.working ? (
+                        ) : (accountsStatus[account.id] || false) ? (
                           <>
                             <Pause className="w-4 h-4 mr-1" />
                             Pausar

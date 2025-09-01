@@ -9,7 +9,6 @@ export interface InstagramAccount {
   auth_type: InstagramAuthType;
   is_logged_in: boolean;
   is_monitoring: boolean;
-  working: boolean;
   password?: string | null;
   login_time?: string | null;
   logout_time?: string | null;
@@ -18,7 +17,7 @@ export interface InstagramAccount {
   monitor_keywords?: string[] | null;
   auto_reply_enabled: boolean;
   auto_reply_message?: string | null;
-  cookie?: Record<string, any> | null;
+  cookie?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -32,7 +31,7 @@ export interface CreateInstagramAccountData {
   monitor_keywords?: string[] | null;
   auto_reply_enabled?: boolean;
   auto_reply_message?: string | null;
-  cookie?: Record<string, any> | null;
+  cookie?: string | null;
 }
 
 // Tipo para atualização de conta (todos os campos opcionais exceto id)
@@ -41,7 +40,6 @@ export interface UpdateInstagramAccountData {
   auth_type?: InstagramAuthType;
   is_logged_in?: boolean;
   is_monitoring?: boolean;
-  working?: boolean;
   password?: string | null;
   login_time?: string | null;
   logout_time?: string | null;
@@ -50,7 +48,7 @@ export interface UpdateInstagramAccountData {
   monitor_keywords?: string[] | null;
   auto_reply_enabled?: boolean;
   auto_reply_message?: string | null;
-  cookie?: Record<string, any> | null;
+  cookie?: string | null;
 }
 
 // Tipo para filtros de busca
@@ -60,7 +58,6 @@ export interface InstagramAccountFilters {
   auth_type?: InstagramAuthType;
   is_logged_in?: boolean;
   is_monitoring?: boolean;
-  working?: boolean;
   auto_reply_enabled?: boolean;
 }
 

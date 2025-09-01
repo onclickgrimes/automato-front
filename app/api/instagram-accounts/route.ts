@@ -122,10 +122,7 @@ export async function POST(request: NextRequest) {
       monitor_keywords: body.monitor_keywords || null,
       auto_reply_enabled: body.auto_reply_enabled || false,
       auto_reply_message: body.auto_reply_message || null,
-      cookie: {
-         ...body.cookie,
-         ...(body.cookies && { cookies: body.cookies })
-       }
+      cookie: body.cookie || null
     };
     
     console.log('Dados preparados para criação:', createData);

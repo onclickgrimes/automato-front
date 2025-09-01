@@ -97,6 +97,7 @@ export default function ManageAccountPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [accountStatus, setAccountStatus] = useState<boolean>(false);
   
   // Form states
   const [formData, setFormData] = useState({
@@ -116,6 +117,28 @@ export default function ManageAccountPage() {
   useEffect(() => {
     loadAccount();
   }, [accountId]);
+
+  // Função para verificar status da conta via API
+  const checkAccountStatus = async (username: string) => {
+    try {
+      const response = await fetch(`https://able-viable-elephant.ngrok-free.app/api/instagram/status/${username}`, {
+        method: 'GET',
+        headers: {
+          'ngrok-skip-browser-warning': 'true'
+        }
+      });
+
+      if (!response.ok) {
+        return false;
+      }
+
+      const result = await response.json();
+      return result.success === true && result.status === 'active';
+    } catch (error) {
+      console.error(`Erro ao verificar status da conta ${username}:`, error);
+      return false;
+    }
+  };
 
   const loadAccount = async () => {
     try {
@@ -140,6 +163,10 @@ export default function ManageAccountPage() {
           auto_reply_enabled: accountData.auto_reply_enabled || false,
           auto_reply_message: accountData.auto_reply_message || ''
         });
+        
+        // Verificar status da conta via API
+        const status = await checkAccountStatus(accountData.username);
+        setAccountStatus(status);
       } else {
         router.push('/dashboard/instagram');
       }
@@ -268,9 +295,9 @@ export default function ManageAccountPage() {
         </div>
         
         <div className="flex items-center space-x-2">
-          <Badge variant={account.working ? "default" : "destructive"}>
-            {account.working ? 'Ativo' : 'Inativo'}
-          </Badge>
+          <Badge variant={accountStatus ? "default" : "destructive"}>
+              {accountStatus ? 'Ativo' : 'Inativo'}
+            </Badge>
           <Badge variant={account.is_logged_in ? "default" : "secondary"}>
             {account.is_logged_in ? 'Logado' : 'Deslogado'}
           </Badge>

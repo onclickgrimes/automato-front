@@ -108,7 +108,7 @@ export function AccountManagementModal({
     auto_reply_enabled: account.auto_reply_enabled,
     auto_reply_message: account.auto_reply_message || '',
     monitor_keywords: account.monitor_keywords?.join(', ') || '',
-    cookies: account.cookie?.cookies || ''
+    cookies: account.cookie || ''
   });
 
   // Estados para rotinas
@@ -171,10 +171,7 @@ export function AccountManagementModal({
         monitor_keywords: accountData.monitor_keywords 
           ? accountData.monitor_keywords.split(',').map(k => k.trim()).filter(k => k)
           : null,
-        cookie: {
-           ...account.cookie,
-           cookies: accountData.cookies
-         },
+        cookie: accountData.cookies || null,
         updated_at: new Date().toISOString()
       };
 
