@@ -135,7 +135,11 @@ export default function ManageAccountPage() {
       const result = await response.json();
       return result.success === true && result.status === 'active';
     } catch (error) {
-      console.error(`Erro ao verificar status da conta ${username}:`, error);
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        setError('Host do backend está offline. Não foi possível verificar o status da conta.');
+      } else {
+        console.error(`Erro ao verificar status da conta ${username}:`, error);
+      }
       return false;
     }
   };
@@ -171,7 +175,11 @@ export default function ManageAccountPage() {
         router.push('/dashboard/instagram');
       }
     } catch (error) {
-      console.error('Erro ao carregar conta:', error);
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        setError('Backend host está offline. Não foi possível carregar a conta.');
+      } else {
+        console.error('Erro ao carregar conta:', error);
+      }
       router.push('/dashboard/instagram');
     } finally {
       setIsLoading(false);
@@ -227,8 +235,12 @@ export default function ManageAccountPage() {
       await loadAccount();
       
     } catch (error) {
-      console.error('Erro ao salvar:', error);
-      setSaveError('Erro ao salvar alterações');
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        setSaveError('Backend host está offline. Não foi possível salvar as alterações.');
+      } else {
+        console.error('Erro ao salvar:', error);
+        setSaveError('Erro ao salvar alterações');
+      }
     } finally {
       setIsSaving(false);
     }

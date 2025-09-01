@@ -115,7 +115,12 @@ export function InstagramAccountManager() {
         throw new Error(result.error || 'Erro ao carregar contas');
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro desconhecido');
+      if (err instanceof TypeError && err.message.includes('fetch')) {
+        setError('Backend host está offline. Verifique a conexão.');
+      } else {
+        setError(err instanceof Error ? err.message : 'Erro desconhecido');
+        console.error('Erro ao carregar contas:', err);
+      }
     } finally {
       setLoading(false);
     }
@@ -138,7 +143,13 @@ export function InstagramAccountManager() {
       
       await loadAccounts(); // Recarregar lista
     } catch (err) {
-      throw err;
+      if (err instanceof TypeError && err.message.includes('fetch')) {
+        // Host offline - não logar no console
+        throw new Error('Backend host está offline. Verifique a conexão.');
+      } else {
+        console.error('Erro ao criar conta:', err);
+        throw err;
+      }
     }
   };
 
@@ -152,7 +163,13 @@ export function InstagramAccountManager() {
       }
       await loadAccounts(); // Recarregar lista
     } catch (err) {
-      throw err;
+      if (err instanceof TypeError && err.message.includes('fetch')) {
+        // Host offline - não logar no console
+        throw new Error('Backend host está offline. Verifique a conexão.');
+      } else {
+        console.error('Erro ao deletar conta:', err);
+        throw err;
+      }
     }
   };
 
@@ -171,7 +188,13 @@ export function InstagramAccountManager() {
       }
       await loadAccounts(); // Recarregar lista
     } catch (err) {
-      throw err;
+      if (err instanceof TypeError && err.message.includes('fetch')) {
+        // Host offline - não logar no console
+        throw new Error('Backend host está offline. Verifique a conexão.');
+      } else {
+        console.error('Erro ao atualizar conta:', err);
+        throw err;
+      }
     }
   };
 
@@ -189,7 +212,13 @@ export function InstagramAccountManager() {
       }
       await loadAccounts(); // Recarregar lista
     } catch (err) {
-      throw err;
+      if (err instanceof TypeError && err.message.includes('fetch')) {
+        // Host offline - não logar no console
+        throw new Error('Backend host está offline. Verifique a conexão.');
+      } else {
+        console.error('Erro ao atualizar status de login:', err);
+        throw err;
+      }
     }
   };
 
@@ -232,6 +261,8 @@ export function InstagramAccountManager() {
     if (accounts.length === 0) return;
     
     setIsCheckingStatus(true);
+    let hostOfflineDetected = false;
+    
     try {
       const statusPromises = accounts.map(async (account) => {
         try {
@@ -252,7 +283,11 @@ export function InstagramAccountManager() {
             isActive: result.success === true && result.status === 'active'
           };
         } catch (error) {
-          console.error(`Erro ao verificar status da conta ${account.username}:`, error);
+          if (error instanceof TypeError && error.message.includes('fetch')) {
+            hostOfflineDetected = true;
+          } else {
+            console.error(`Erro ao verificar status da conta AccountManager ${account.username}:`, error);
+          }
           return { accountId: account.id, isActive: false };
         }
       });
@@ -267,10 +302,20 @@ export function InstagramAccountManager() {
       
       setAccountsStatus(newAccountsStatus);
       
+      // Avisar se o host estiver offline
+      if (hostOfflineDetected) {
+        setError('Host do backend está offline. Não foi possível verificar o status das contas.');
+      }
+      
       // Recarregar contas para refletir as mudanças
        await loadAccounts();
      } catch (error) {
-       console.error('Erro ao verificar status das contas:', error);
+       if (error instanceof TypeError && error.message.includes('fetch')) {
+         setError('Host do backend está offline. Não foi possível verificar o status das contas.');
+       } else {
+         console.error('Erro ao verificar status das contas:', error);
+         setError('Erro ao verificar status das contas. Verifique sua conexão.');
+       }
      } finally {
        setIsCheckingStatus(false);
      }
@@ -454,8 +499,13 @@ export function InstagramAccountManager() {
       const result = await response.json();
       return result;
     } catch (error) {
-      console.error('Erro ao verificar status:', error);
-      return null;
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        // Host offline - não logar erro de conectividade
+        return null;
+      } else {
+        console.error('Erro ao verificar status:', error);
+        return null;
+      }
     }
   };
 
@@ -547,8 +597,12 @@ export function InstagramAccountManager() {
         }
       }
     } catch (error) {
-      console.error('Erro ao alterar status da conta:', error);
-      setError(`Erro ao alterar status da conta: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        setError('Host do backend está offline. Não foi possível alterar o status da conta.');
+      } else {
+        console.error('Erro ao alterar status da conta:', error);
+        setError(`Erro ao alterar status da conta: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+      }
     }
     
     setWorkingAccountId(null);
