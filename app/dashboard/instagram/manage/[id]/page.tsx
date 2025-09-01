@@ -1,127 +1,120 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Separator } from '@/components/ui/separator';
+import { Badge } from '@/components/ui/badge';
 import {
-  Settings,
-  Zap,
   Play,
-  Save,
+  Square,
   RefreshCw,
-  Plus,
-  Trash2,
-  Eye,
-  EyeOff,
-  Clock,
-  Target,
-  MessageCircle,
-  Heart,
-  UserPlus,
-  Camera,
-  Cookie,
-  ArrowLeft
+  Activity,
+  Users,
+  ChevronDown,
+  Terminal,
+  ArrowLeft,
+  Zap,
+  CheckCircle,
+  XCircle
 } from 'lucide-react';
 import { InstagramAccount } from '@/lib/types/instagram-accounts';
 
-interface RoutineData {
+interface LogEntry {
   id: string;
-  name: string;
-  description: string;
-  trigger_type: 'manual' | 'schedule' | 'event';
-  actions: any[];
-  is_active: boolean;
-  status: string;
-  last_executed?: string;
-  next_execution?: string;
+  timestamp: string;
+  level: 'info' | 'success' | 'warning' | 'error';
+  message: string;
 }
 
-interface QuickAction {
-  id: string;
-  type: 'like' | 'comment' | 'follow' | 'upload' | 'message';
-  name: string;
-  description: string;
-  icon: any;
-}
+const BACKEND_BASE_URL = 'https://able-viable-elephant.ngrok-free.app';
 
-const quickActions: QuickAction[] = [
-  {
-    id: 'like',
-    type: 'like',
-    name: 'Curtir Posts',
-    description: 'Curtir posts específicos ou por hashtag',
-    icon: Heart
-  },
-  {
-    id: 'comment',
-    type: 'comment',
-    name: 'Comentar',
-    description: 'Adicionar comentários em posts',
-    icon: MessageCircle
-  },
-  {
-    id: 'follow',
-    type: 'follow',
-    name: 'Seguir Usuários',
-    description: 'Seguir usuários específicos ou por critério',
-    icon: UserPlus
-  },
-  {
-    id: 'upload',
-    type: 'upload',
-    name: 'Upload de Foto',
-    description: 'Fazer upload de fotos com legenda',
-    icon: Camera
-  }
-];
-
-export default function ManageAccountPage() {
+export default function InstagramControlPanel() {
   const params = useParams();
   const router = useRouter();
   const accountId = params.id as string;
-  
+  const logsEndRef = useRef<HTMLDivElement>(null);
 
-  
-  const [account, setAccount] = useState<InstagramAccount | null>(null);
-  const [routines, setRoutines] = useState<RoutineData[]>([]);
+  // Estados principais
+  const [currentAccount, setCurrentAccount] = useState<InstagramAccount | null>(null);
+  const [allAccounts, setAllAccounts] = useState<InstagramAccount[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
-  const [saveSuccess, setSaveSuccess] = useState(false);
-  const [accountStatus, setAccountStatus] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
   
-  // Form states
-  const [formData, setFormData] = useState({
-    username: '',
-    password: '',
-    cookies: '',
-    auth_type: 'credentials' as 'credentials' | 'cookie',
-    monitor_keywords: [] as string[],
-    auto_reply_enabled: false,
-    auto_reply_message: ''
-  });
+  // Estados de controle
+  const [instanceStatus, setInstanceStatus] = useState<'active' | 'inactive' | 'unknown'>('unknown');
+  const [isStarting, setIsStarting] = useState(false);
+  const [isStopping, setIsStopping] = useState(false);
+  const [isCheckingStatus, setIsCheckingStatus] = useState(false);
+  const [isCheckingActive, setIsCheckingActive] = useState(false);
   
-  const [showPassword, setShowPassword] = useState(false);
-  const [showCookies, setShowCookies] = useState(false);
-  const [newKeyword, setNewKeyword] = useState('');
+  // Logs
+  const [logs, setLogs] = useState<LogEntry[]>([]);
 
+  // Carregar dados iniciais
   useEffect(() => {
-    loadAccount();
+    loadInitialData();
   }, [accountId]);
 
-  // Função para verificar status da conta via API
-  const checkAccountStatus = async (username: string) => {
+  // Auto-scroll dos logs
+  useEffect(() => {
+    logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [logs]);
+
+  const addLog = (level: LogEntry['level'], message: string) => {
+    const newLog: LogEntry = {
+      id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      timestamp: new Date().toLocaleTimeString(),
+      level,
+      message
+    };
+    setLogs(prev => [...prev, newLog]);
+  };
+
+  const loadInitialData = async () => {
     try {
-      const response = await fetch(`https://able-viable-elephant.ngrok-free.app/api/instagram/status/${username}`, {
+      setIsLoading(true);
+      addLog('info', 'Carregando dados iniciais...');
+      
+      // Carregar todas as contas
+      const accountsResponse = await fetch('/api/instagram-accounts');
+      if (!accountsResponse.ok) {
+        throw new Error('Erro ao carregar contas');
+      }
+      
+      const accountsResult = await accountsResponse.json();
+      if (accountsResult.success) {
+        setAllAccounts(accountsResult.data || []);
+        
+        // Encontrar conta atual
+        const current = accountsResult.data.find((acc: InstagramAccount) => acc.id === accountId);
+        if (current) {
+          setCurrentAccount(current);
+          addLog('success', `Conta @${current.username} carregada com sucesso`);
+          
+          // Verificar status inicial
+          await checkInstanceStatus(current.username);
+        } else {
+          throw new Error('Conta não encontrada');
+        }
+      }
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Erro desconhecido';
+      setError(errorMsg);
+      addLog('error', `Erro ao carregar dados: ${errorMsg}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const checkInstanceStatus = async (username: string) => {
+    try {
+      setIsCheckingStatus(true);
+      addLog('info', `Verificando status da instância @${username}...`);
+      
+      const response = await fetch(`${BACKEND_BASE_URL}/api/instagram/status/${username}`, {
         method: 'GET',
         headers: {
           'ngrok-skip-browser-warning': 'true'
@@ -129,138 +122,187 @@ export default function ManageAccountPage() {
       });
 
       if (!response.ok) {
-        return false;
+        throw new Error(`Erro na requisição: ${response.status}`);
       }
 
       const result = await response.json();
-      return result.success === true && result.status === 'active';
-    } catch (error) {
-      if (error instanceof TypeError && error.message.includes('fetch')) {
-        setError('Host do backend está offline. Não foi possível verificar o status da conta.');
+      const isActive = result.success === true && result.status === 'active';
+      
+      setInstanceStatus(isActive ? 'active' : 'inactive');
+      addLog(isActive ? 'success' : 'warning', 
+        `Status: ${isActive ? 'Instância ativa' : 'Instância inativa'}`);
+      
+      return isActive;
+    } catch (err) {
+      if (err instanceof TypeError && err.message.includes('fetch')) {
+        setInstanceStatus('unknown');
+        addLog('error', 'Backend offline - não foi possível verificar status');
       } else {
-        console.error(`Erro ao verificar status da conta ${username}:`, error);
+        console.error(`Erro ao verificar status:`, err);
+        setInstanceStatus('unknown');
+        addLog('error', `Erro ao verificar status: ${err instanceof Error ? err.message : 'Erro desconhecido'}`);
       }
       return false;
-    }
-  };
-
-  const loadAccount = async () => {
-    try {
-      setIsLoading(true);
-      const response = await fetch(`/api/instagram-accounts/${accountId}`);
-      
-      if (!response.ok) {
-        throw new Error('Conta não encontrada');
-      }
-      
-      const result = await response.json();
-      
-      if (result.success && result.data) {
-        const accountData = result.data;
-        setAccount(accountData);
-        setFormData({
-          username: accountData.username || '',
-          password: accountData.password || '',
-          cookies: accountData.cookie || '',
-          auth_type: accountData.auth_type || 'credentials',
-          monitor_keywords: accountData.monitor_keywords || [],
-          auto_reply_enabled: accountData.auto_reply_enabled || false,
-          auto_reply_message: accountData.auto_reply_message || ''
-        });
-        
-        // Verificar status da conta via API
-        const status = await checkAccountStatus(accountData.username);
-        setAccountStatus(status);
-      } else {
-        router.push('/dashboard/instagram');
-      }
-    } catch (error) {
-      if (error instanceof TypeError && error.message.includes('fetch')) {
-        setError('Backend host está offline. Não foi possível carregar a conta.');
-      } else {
-        console.error('Erro ao carregar conta:', error);
-      }
-      router.push('/dashboard/instagram');
     } finally {
-      setIsLoading(false);
+      setIsCheckingStatus(false);
     }
   };
 
-  const handleSave = async () => {
-    if (!account) return;
+  const startInstance = async () => {
+    if (!currentAccount) return;
     
     try {
-      setIsSaving(true);
-      setSaveError(null);
-      setSaveSuccess(false);
+      setIsStarting(true);
+      addLog('info', `Iniciando instância @${currentAccount.username}...`);
       
-      const updateData: Partial<InstagramAccount> = {
-        username: formData.username,
-        auth_type: formData.auth_type,
-        monitor_keywords: formData.monitor_keywords,
-        auto_reply_enabled: formData.auto_reply_enabled,
-        auto_reply_message: formData.auto_reply_message
+      const body = {
+        accountId: currentAccount.id,
+        username: currentAccount.username,
+        auth_type: currentAccount.auth_type,
+        ...(currentAccount.auth_type === 'credentials' 
+          ? { password: currentAccount.password } 
+          : { cookies: currentAccount.cookie })
       };
       
-      // Incluir password apenas se foi alterado
-      if (formData.password && formData.password !== account.password) {
-        updateData.password = formData.password;
-      }
-      
-      // Incluir cookies apenas se foi alterado
-      if (formData.cookies && formData.cookies !== (account.cookie || '')) {
-        updateData.cookie = formData.cookies;
-      }
-      
-      const response = await fetch(`/api/instagram-accounts/${account.id}`, {
-        method: 'PUT',
+      const response = await fetch(`${BACKEND_BASE_URL}/api/instagram/iniciar`, {
+        method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true'
         },
-        body: JSON.stringify(updateData)
+        body: JSON.stringify(body)
       });
-      
+
       if (!response.ok) {
-        throw new Error('Erro ao atualizar conta');
+        throw new Error(`Erro na requisição: ${response.status}`);
       }
-      
+
       const result = await response.json();
       
-      if (!result.success) {
-        throw new Error(result.error || 'Erro ao atualizar conta');
-      }
-      setSaveSuccess(true);
-      
-      // Recarregar dados da conta
-      await loadAccount();
-      
-    } catch (error) {
-      if (error instanceof TypeError && error.message.includes('fetch')) {
-        setSaveError('Backend host está offline. Não foi possível salvar as alterações.');
+      if (result.status === 'ok' || result.success) {
+        setInstanceStatus('active');
+        addLog('success', 'Instância iniciada com sucesso!');
       } else {
-        console.error('Erro ao salvar:', error);
-        setSaveError('Erro ao salvar alterações');
+        throw new Error(result.message || 'Erro ao iniciar instância');
+      }
+    } catch (err) {
+      if (err instanceof TypeError && err.message.includes('fetch')) {
+        addLog('error', 'Backend offline - não foi possível iniciar instância');
+      } else {
+        console.error('Erro ao iniciar instância:', err);
+        addLog('error', `Erro ao iniciar: ${err instanceof Error ? err.message : 'Erro desconhecido'}`);
       }
     } finally {
-      setIsSaving(false);
+      setIsStarting(false);
     }
   };
 
-  const handleAddKeyword = () => {
-    if (newKeyword.trim() && !formData.monitor_keywords.includes(newKeyword.trim())) {
-      setFormData(prev => ({
-        ...prev,
-        monitor_keywords: [...prev.monitor_keywords, newKeyword.trim()]
-      }));
-      setNewKeyword('');
+  const stopInstance = async () => {
+    if (!currentAccount) return;
+    
+    try {
+      setIsStopping(true);
+      addLog('info', `Parando instância @${currentAccount.username}...`);
+      
+      const response = await fetch(`${BACKEND_BASE_URL}/api/instagram/parar/${currentAccount.username}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`Erro na requisição: ${response.status}`);
+      }
+
+      const result = await response.json();
+      
+      if (result.status === 'ok' || result.success) {
+        setInstanceStatus('inactive');
+        addLog('success', 'Instância parada com sucesso!');
+      } else {
+        throw new Error(result.message || 'Erro ao parar instância');
+      }
+    } catch (err) {
+      if (err instanceof TypeError && err.message.includes('fetch')) {
+        addLog('error', 'Backend offline - não foi possível parar instância');
+      } else {
+        console.error('Erro ao parar instância:', err);
+        addLog('error', `Erro ao parar: ${err instanceof Error ? err.message : 'Erro desconhecido'}`);
+      }
+    } finally {
+      setIsStopping(false);
     }
   };
 
-  const handleRemoveKeyword = (keyword: string) => {
-    setFormData(prev => ({
-      ...prev,
-      monitor_keywords: prev.monitor_keywords.filter(k => k !== keyword)
-    }));
+  const checkActiveInstances = async () => {
+    try {
+      setIsCheckingActive(true);
+      addLog('info', 'Verificando instâncias ativas...');
+      
+      const response = await fetch(`${BACKEND_BASE_URL}/api/instagram/ativos`, {
+        method: 'GET',
+        headers: {
+          'ngrok-skip-browser-warning': 'true'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`Erro na requisição: ${response.status}`);
+      }
+
+      const result = await response.json();
+      
+      if (result.success && Array.isArray(result.data)) {
+        const activeCount = result.data.length;
+        const activeUsernames = result.data.map((item: any) => item.username || item).join(', ');
+        
+        addLog('success', `${activeCount} instância(s) ativa(s): ${activeUsernames || 'Nenhuma'}`);
+      } else {
+        addLog('warning', 'Nenhuma instância ativa encontrada');
+      }
+    } catch (err) {
+      if (err instanceof TypeError && err.message.includes('fetch')) {
+        addLog('error', 'Backend offline - não foi possível verificar instâncias ativas');
+      } else {
+        console.error('Erro ao verificar instâncias ativas:', err);
+        addLog('error', `Erro ao verificar ativos: ${err instanceof Error ? err.message : 'Erro desconhecido'}`);
+      }
+    } finally {
+      setIsCheckingActive(false);
+    }
+  };
+
+  const handleAccountChange = (newAccountId: string) => {
+    if (newAccountId !== accountId) {
+      router.push(`/dashboard/instagram/manage/${newAccountId}`);
+    }
+  };
+
+  const getStatusColor = () => {
+    switch (instanceStatus) {
+      case 'active': return 'text-green-500';
+      case 'inactive': return 'text-red-500';
+      default: return 'text-gray-500';
+    }
+  };
+
+  const getStatusIcon = () => {
+    switch (instanceStatus) {
+      case 'active': return <CheckCircle className="w-4 h-4 text-green-500" />;
+      case 'inactive': return <XCircle className="w-4 h-4 text-red-500" />;
+      default: return <RefreshCw className="w-4 h-4 text-gray-500 animate-spin" />;
+    }
+  };
+
+  const getLogColor = (level: LogEntry['level']) => {
+    switch (level) {
+      case 'success': return 'text-green-400';
+      case 'warning': return 'text-yellow-400';
+      case 'error': return 'text-red-400';
+      default: return 'text-gray-300';
+    }
   };
 
   if (isLoading) {
@@ -268,298 +310,233 @@ export default function ManageAccountPage() {
       <div className="container mx-auto p-6">
         <div className="flex items-center justify-center h-64">
           <RefreshCw className="w-8 h-8 animate-spin" />
-          <span className="ml-2">Carregando...</span>
+          <span className="ml-2">Carregando painel de controle...</span>
         </div>
       </div>
     );
   }
 
-  if (!account) {
+  if (error) {
     return (
       <div className="container mx-auto p-6">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold mb-4">Conta não encontrada</h1>
-          <Button onClick={() => router.push('/dashboard/instagram')}>
-            Voltar para Instagram
-          </Button>
-        </div>
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+        <Button onClick={() => router.push('/dashboard/instagram')} className="mt-4">
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          Voltar
+        </Button>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto p-6 max-w-4xl">
+    <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center space-x-4">
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={() => router.push('/dashboard/instagram')}
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Voltar
-          </Button>
-          <div>
-            <h1 className="text-2xl font-bold">Gerenciar Conta</h1>
-            <p className="text-muted-foreground">@{account.username}</p>
+      <div className="bg-white border-b border-gray-200 px-6 py-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => router.push('/dashboard/instagram')}
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Voltar
+            </Button>
+            
+            {/* Dropdown de Contas */}
+            <div className="flex items-center space-x-2">
+              <span className="text-sm font-medium text-gray-700">Conta:</span>
+              <Select value={accountId} onValueChange={handleAccountChange}>
+                <SelectTrigger className="w-64">
+                  <SelectValue>
+                    <div className="flex items-center space-x-2">
+                      <span>@{currentAccount?.username}</span>
+                      <Badge variant={instanceStatus === 'active' ? 'default' : 'secondary'}>
+                        {instanceStatus === 'active' ? 'Ativo' : instanceStatus === 'inactive' ? 'Inativo' : 'Desconhecido'}
+                      </Badge>
+                    </div>
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {allAccounts.map((account) => (
+                    <SelectItem key={account.id} value={account.id}>
+                      <div className="flex items-center justify-between w-full">
+                        <span>@{account.username}</span>
+                        <Badge 
+                          variant={account.auth_type === 'credentials' ? 'default' : 'secondary'}
+                          className="ml-2"
+                        >
+                          {account.auth_type === 'credentials' ? 'Cred' : 'Cookie'}
+                        </Badge>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
-        </div>
-        
-        <div className="flex items-center space-x-2">
-          <Badge variant={accountStatus ? "default" : "destructive"}>
-              {accountStatus ? 'Ativo' : 'Inativo'}
-            </Badge>
-          <Badge variant={account.is_logged_in ? "default" : "secondary"}>
-            {account.is_logged_in ? 'Logado' : 'Deslogado'}
-          </Badge>
+          
+          <div className="flex items-center space-x-2">
+            {getStatusIcon()}
+            <span className={`text-sm font-medium ${getStatusColor()}`}>
+              {instanceStatus === 'active' ? 'Instância Ativa' : 
+               instanceStatus === 'inactive' ? 'Instância Inativa' : 'Status Desconhecido'}
+            </span>
+          </div>
         </div>
       </div>
 
-      {/* Alerts */}
-      {saveError && (
-        <Alert className="mb-4" variant="destructive">
-          <AlertDescription>{saveError}</AlertDescription>
-        </Alert>
-      )}
-      
-      {saveSuccess && (
-        <Alert className="mb-4">
-          <AlertDescription>Alterações salvas com sucesso!</AlertDescription>
-        </Alert>
-      )}
-
-      <Tabs defaultValue="settings" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="settings">
-            <Settings className="w-4 h-4 mr-2" />
-            Configurações
-          </TabsTrigger>
-          <TabsTrigger value="monitoring">
-            <Target className="w-4 h-4 mr-2" />
-            Monitoramento
-          </TabsTrigger>
-          <TabsTrigger value="actions">
-            <Zap className="w-4 h-4 mr-2" />
-            Ações Rápidas
-          </TabsTrigger>
-        </TabsList>
-
-        {/* Configurações */}
-        <TabsContent value="settings">
+      {/* Painel Central */}
+      <div className="container mx-auto p-6 max-w-6xl">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          {/* Controle da Instância */}
           <Card>
             <CardHeader>
-              <CardTitle>Configurações da Conta</CardTitle>
+              <CardTitle className="flex items-center space-x-2">
+                <Zap className="w-5 h-5" />
+                <span>Controle da Instância</span>
+              </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-6">
-              {/* Username */}
-              <div className="space-y-2">
-                <Label htmlFor="username">Nome de usuário</Label>
-                <Input
-                  id="username"
-                  value={formData.username}
-                  onChange={(e) => setFormData(prev => ({ ...prev, username: e.target.value }))}
-                  placeholder="@username"
-                />
-              </div>
-
-              {/* Auth Type */}
-              <div className="space-y-2">
-                <Label htmlFor="auth_type">Tipo de Autenticação</Label>
-                <Select
-                  value={formData.auth_type}
-                  onValueChange={(value: 'credentials' | 'cookie') => 
-                    setFormData(prev => ({ ...prev, auth_type: value }))
-                  }
+            <CardContent>
+              <div className="grid grid-cols-2 gap-4">
+                <Button 
+                  onClick={startInstance}
+                  disabled={isStarting || instanceStatus === 'active'}
+                  className="h-16 flex flex-col items-center justify-center space-y-1"
                 >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione o tipo de autenticação" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="credentials">Credenciais (Usuário e Senha)</SelectItem>
-                    <SelectItem value="cookie">Cookie de Sessão</SelectItem>
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground">
-                  {formData.auth_type === 'credentials' 
-                    ? 'Usar nome de usuário e senha para fazer login'
-                    : 'Usar cookies de sessão para autenticação'
-                  }
-                </p>
+                  {isStarting ? (
+                    <RefreshCw className="w-6 h-6 animate-spin" />
+                  ) : (
+                    <Play className="w-6 h-6" />
+                  )}
+                  <span className="text-sm">Iniciar</span>
+                </Button>
+                
+                <Button 
+                  onClick={stopInstance}
+                  disabled={isStopping || instanceStatus === 'inactive'}
+                  variant="destructive"
+                  className="h-16 flex flex-col items-center justify-center space-y-1"
+                >
+                  {isStopping ? (
+                    <RefreshCw className="w-6 h-6 animate-spin" />
+                  ) : (
+                    <Square className="w-6 h-6" />
+                  )}
+                  <span className="text-sm">Parar</span>
+                </Button>
+                
+                <Button 
+                  onClick={() => currentAccount && checkInstanceStatus(currentAccount.username)}
+                  disabled={isCheckingStatus}
+                  variant="outline"
+                  className="h-16 flex flex-col items-center justify-center space-y-1"
+                >
+                  {isCheckingStatus ? (
+                    <RefreshCw className="w-6 h-6 animate-spin" />
+                  ) : (
+                    <Activity className="w-6 h-6" />
+                  )}
+                  <span className="text-sm">Verificar Status</span>
+                </Button>
+                
+                <Button 
+                  onClick={checkActiveInstances}
+                  disabled={isCheckingActive}
+                  variant="outline"
+                  className="h-16 flex flex-col items-center justify-center space-y-1"
+                >
+                  {isCheckingActive ? (
+                    <RefreshCw className="w-6 h-6 animate-spin" />
+                  ) : (
+                    <Users className="w-6 h-6" />
+                  )}
+                  <span className="text-sm">Verificar Ativos</span>
+                </Button>
               </div>
+            </CardContent>
+          </Card>
 
-              {/* Password - Only show for credentials auth */}
-              {formData.auth_type === 'credentials' && (
-                <div className="space-y-2">
-                  <Label htmlFor="password">Senha</Label>
-                  <div className="relative">
-                    <Input
-                      id="password"
-                      type={showPassword ? 'text' : 'password'}
-                      value={formData.password}
-                      onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
-                      placeholder="Digite a senha"
-                    />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                      onClick={() => setShowPassword(!showPassword)}
-                    >
-                      {showPassword ? (
-                        <EyeOff className="h-4 w-4" />
-                      ) : (
-                        <Eye className="h-4 w-4" />
-                      )}
-                    </Button>
+          {/* Informações da Conta */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Informações da Conta</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {currentAccount && (
+                <div className="space-y-3">
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-600">Username:</span>
+                    <span className="font-medium">@{currentAccount.username}</span>
                   </div>
-                </div>
-              )}
-
-              {/* Cookies - Only show for cookie auth */}
-              {formData.auth_type === 'cookie' && (
-                <div className="space-y-2">
-                  <Label htmlFor="cookies">Cookies de Sessão</Label>
-                  <div className="relative">
-                    <Textarea
-                      id="cookies"
-                      value={formData.cookies}
-                      onChange={(e) => setFormData(prev => ({ ...prev, cookies: e.target.value }))}
-                      placeholder="Cole os cookies de sessão aqui..."
-                      className="min-h-[100px]"
-                    />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="absolute right-2 top-2"
-                      onClick={() => setShowCookies(!showCookies)}
-                    >
-                      {showCookies ? (
-                        <EyeOff className="h-4 w-4" />
-                      ) : (
-                        <Eye className="h-4 w-4" />
-                      )}
-                    </Button>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-600">Tipo de Auth:</span>
+                    <Badge variant={currentAccount.auth_type === 'credentials' ? 'default' : 'secondary'}>
+                      {currentAccount.auth_type === 'credentials' ? 'Credenciais' : 'Cookie'}
+                    </Badge>
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    Os cookies serão salvos de forma segura no banco de dados
-                  </p>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-600">Status Login:</span>
+                    <Badge variant={currentAccount.is_logged_in ? 'default' : 'destructive'}>
+                      {currentAccount.is_logged_in ? 'Logado' : 'Deslogado'}
+                    </Badge>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-600">Monitoramento:</span>
+                    <Badge variant={currentAccount.is_monitoring ? 'default' : 'secondary'}>
+                      {currentAccount.is_monitoring ? 'Ativo' : 'Inativo'}
+                    </Badge>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-600">Criado em:</span>
+                    <span className="text-sm">
+                      {new Date(currentAccount.created_at).toLocaleDateString('pt-BR')}
+                    </span>
+                  </div>
                 </div>
               )}
             </CardContent>
           </Card>
-        </TabsContent>
+        </div>
 
-        {/* Monitoramento */}
-        <TabsContent value="monitoring">
-          <div className="space-y-6">
-            {/* Auto Reply */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Resposta Automática</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    id="auto_reply"
-                    checked={formData.auto_reply_enabled}
-                    onChange={(e) => setFormData(prev => ({ ...prev, auto_reply_enabled: e.target.checked }))}
-                    className="rounded"
-                  />
-                  <Label htmlFor="auto_reply">Ativar resposta automática</Label>
+        {/* Logs em Tempo Real */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2">
+              <Terminal className="w-5 h-5" />
+              <span>Logs em Tempo Real</span>
+              <Badge variant="outline">{logs.length}</Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="bg-gray-900 rounded-lg p-4 h-80 overflow-y-auto font-mono text-sm">
+              {logs.length === 0 ? (
+                <div className="text-gray-500 text-center py-8">
+                  Nenhum log ainda. As ações aparecerão aqui...
                 </div>
-                
-                {formData.auto_reply_enabled && (
-                  <div className="space-y-2">
-                    <Label htmlFor="auto_reply_message">Mensagem de resposta</Label>
-                    <Textarea
-                      id="auto_reply_message"
-                      value={formData.auto_reply_message}
-                      onChange={(e) => setFormData(prev => ({ ...prev, auto_reply_message: e.target.value }))}
-                      placeholder="Digite a mensagem de resposta automática..."
-                    />
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Keywords */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Palavras-chave para Monitoramento</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex space-x-2">
-                  <Input
-                    value={newKeyword}
-                    onChange={(e) => setNewKeyword(e.target.value)}
-                    placeholder="Adicionar palavra-chave"
-                    onKeyPress={(e) => e.key === 'Enter' && handleAddKeyword()}
-                  />
-                  <Button onClick={handleAddKeyword}>
-                    <Plus className="w-4 h-4" />
-                  </Button>
-                </div>
-                
-                <div className="flex flex-wrap gap-2">
-                  {formData.monitor_keywords.map((keyword, index) => (
-                    <Badge key={index} variant="secondary" className="flex items-center space-x-1">
-                      <span>{keyword}</span>
-                      <button
-                        onClick={() => handleRemoveKeyword(keyword)}
-                        className="ml-1 hover:text-red-500"
-                      >
-                        <Trash2 className="w-3 h-3" />
-                      </button>
-                    </Badge>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-
-        {/* Ações Rápidas */}
-        <TabsContent value="actions">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {quickActions.map((action) => {
-              const IconComponent = action.icon;
-              return (
-                <Card key={action.id} className="cursor-pointer hover:shadow-md transition-shadow">
-                  <CardContent className="p-4">
-                    <div className="flex items-center space-x-3">
-                      <div className="p-2 bg-primary/10 rounded-lg">
-                        <IconComponent className="w-5 h-5 text-primary" />
-                      </div>
-                      <div className="flex-1">
-                        <h3 className="font-medium">{action.name}</h3>
-                        <p className="text-sm text-muted-foreground">{action.description}</p>
-                      </div>
-                      <Button size="sm">
-                        <Play className="w-4 h-4" />
-                      </Button>
+              ) : (
+                <div className="space-y-1">
+                  {logs.map((log) => (
+                    <div key={log.id} className="flex items-start space-x-2">
+                      <span className="text-gray-500 text-xs min-w-[80px]">
+                        [{log.timestamp}]
+                      </span>
+                      <span className={`text-xs uppercase min-w-[60px] ${getLogColor(log.level)}`}>
+                        {log.level}
+                      </span>
+                      <span className="text-gray-300 flex-1">
+                        {log.message}
+                      </span>
                     </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-        </TabsContent>
-      </Tabs>
-
-      {/* Save Button */}
-      <div className="flex justify-end mt-6">
-        <Button onClick={handleSave} disabled={isSaving}>
-          {isSaving ? (
-            <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-          ) : (
-            <Save className="w-4 h-4 mr-2" />
-          )}
-          Salvar Alterações
-        </Button>
+                  ))}
+                  <div ref={logsEndRef} />
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
