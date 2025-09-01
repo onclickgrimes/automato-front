@@ -157,7 +157,7 @@ export default function ManageAccountPage() {
         setFormData({
           username: accountData.username || '',
           password: accountData.password || '',
-          cookies: accountData.cookie?.cookies || '',
+          cookies: accountData.cookie || '',
           auth_type: accountData.auth_type || 'credentials',
           monitor_keywords: accountData.monitor_keywords || [],
           auto_reply_enabled: accountData.auto_reply_enabled || false,
@@ -200,8 +200,8 @@ export default function ManageAccountPage() {
       }
       
       // Incluir cookies apenas se foi alterado
-      if (formData.cookies && formData.cookies !== (account.cookie?.cookies || '')) {
-        updateData.cookies = formData.cookies;
+      if (formData.cookies && formData.cookies !== (account.cookie || '')) {
+        updateData.cookie = formData.cookies;
       }
       
       const response = await fetch(`/api/instagram-accounts/${account.id}`, {
