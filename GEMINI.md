@@ -3,6 +3,15 @@
 -- WARNING: This schema is for context only and is not meant to be run.
 -- Table order and constraints may not be valid for execution.
 
+-- Nova tabela para workflows do editor visual
+CREATE TABLE public.workflows (
+  id text PRIMARY KEY,
+  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  workflow jsonb NOT NULL,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now()
+);
+
 CREATE TABLE public.execution_logs (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL,
@@ -126,6 +135,7 @@ CREATE TABLE public.routines (
 ### Políticas RLS (Row Level Security)
 
 Todas as tabelas possuem políticas RLS configuradas para garantir que:
+- A tabela `workflows` possui políticas RLS para que usuários só possam acessar seus próprios workflows
 - Usuários só podem acessar seus próprios dados
 - Operações CRUD são restritas ao proprietário dos dados
 - Segurança baseada em `auth.uid()` do Supabase
@@ -134,4 +144,123 @@ Todas as tabelas possuem políticas RLS configuradas para garantir que:
 
 1. **`update_updated_at_column()`**: Atualiza automaticamente o campo `updated_at`
 2. **`handle_new_user()`**: Cria automaticamente um perfil quando um usuário se registra
-3. **Triggers**: Aplicados em todas as tabelas para manter `updated_at` atualizado
+3. **Triggers**: Aplicados em todas as tabelas para manter `updated_at` (incluindo tabela `workflows`)
+
+## Editor Visual de Workflows
+
+### Visão Geral
+
+O editor visual de workflows foi implementado usando `@xyflow/react` para criar uma interface drag-and-drop intuitiva para construção de workflows de automação do Instagram.
+
+### Componentes Principais
+
+#### 1. FlowEditor (`components/workflow/FlowEditor.tsx`)
+- Componente principal que integra todo o editor
+- Gerencia estado do workflow e sincronização com nodes
+- Implementa funcionalidades de exportar JSON e salvar no Supabase
+- Suporte completo a drag-and-drop
+
+#### 2. StepNode (`components/workflow/StepNode.tsx`)
+- Representa cada Step como um nó visual no canvas
+- Exibe ações configuradas com cores diferenciadas
+- Permite seleção, configuração e exclusão de steps
+- Conectável através de handles (pontos de conexão)
+
+#### 3. WorkflowSidebar (`components/workflow/WorkflowSidebar.tsx`)
+- Painel lateral direito para configuração
+- Configurações do workflow (quando nenhum step selecionado)
+- Configurações do step selecionado (nome, condições, retry, ações)
+- Formulários dinâmicos baseados no tipo de ação
+
+#### 4. NodesSidebar (`components/workflow/NodesSidebar.tsx`)
+- Painel lateral esquerdo com componentes disponíveis
+- Botão para adicionar novos steps
+- Lista de ações disponíveis para drag-and-drop
+- Instruções de uso
+
+### Tipos de Ações Suportadas
+
+1. **sendDirectMessage**: Enviar mensagem direta
+2. **likePost**: Curtir post específico
+3. **followUser**: Seguir usuário
+4. **unfollowUser**: Deixar de seguir usuário
+5. **comment**: Comentar em post
+6. **monitorMessages**: Monitorar mensagens recebidas
+7. **monitorPosts**: Monitorar posts por hashtags
+8. **delay**: Aguardar tempo específico
+
+### Estrutura JSON do Workflow
+
+```typescript
+interface Workflow {
+  id: string;
+  name: string;
+  description?: string;
+  username: string;
+  steps: WorkflowStep[];
+  config?: WorkflowConfig;
+}
+
+interface WorkflowStep {
+  id: string;
+  name: string;
+  actions: WorkflowAction[];
+  condition?: string;
+  retry?: {
+    maxAttempts: number;
+    delaySeconds: number;
+  };
+}
+
+interface WorkflowAction {
+  type: WorkflowActionType;
+  params: WorkflowActionParams;
+  description?: string;
+}
+```
+
+### Funcionalidades Implementadas
+
+#### Drag and Drop
+- Arrastar ações do sidebar para o canvas cria novos steps
+- Arrastar ações para steps existentes adiciona a ação ao step
+- Suporte completo a detecção de drop zones
+
+#### Configuração Visual
+- Painel lateral dinâmico baseado na seleção
+- Formulários específicos para cada tipo de ação
+- Validação em tempo real
+- Configurações avançadas do workflow
+
+#### Persistência
+- Exportar workflow como JSON
+- Salvar no Supabase com RLS
+- Carregar workflows existentes para edição
+- Validação antes de salvar
+
+#### Interface
+- Layout responsivo ocupando tela inteira
+- Sem barras de rolagem (conforme solicitado)
+- Cores diferenciadas para cada tipo de ação
+- Feedback visual para seleção e hover
+
+### Rotas Implementadas
+
+- `/dashboard/instagram/flows/create`: Criar novo workflow
+- `/dashboard/instagram/flows/edit/[id]`: Editar workflow existente
+
+### Migração do Banco
+
+Executar o arquivo `migrations/create_workflows_table.sql` no Supabase SQL Editor para criar:
+- Tabela `workflows` com RLS
+- Índices para performance
+- Triggers para `updated_at`
+- Políticas de segurança
+
+### Compatibilidade com Backend
+
+O JSON exportado é totalmente compatível com o `WorkflowProcessor` do backend, mantendo:
+- Estrutura exata dos tipos
+- Campos opcionais apenas quando configurados
+- Validação de dados antes da exportação
+- Formato esperado pelos processadores de workflow atualizado

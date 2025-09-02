@@ -1,0 +1,448 @@
+'use client';
+
+import React, { useState } from 'react';
+import { 
+  Workflow, 
+  WorkflowStep, 
+  WorkflowAction, 
+  WorkflowActionType,
+  WorkflowActionParams 
+} from '@/lib/types/workflow';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
+import { Badge } from '@/components/ui/badge';
+import { Trash2, Plus } from 'lucide-react';
+
+interface WorkflowSidebarProps {
+  workflow: Workflow;
+  selectedStep?: WorkflowStep;
+  onWorkflowChange: (workflow: Workflow) => void;
+  onStepChange: (step: WorkflowStep) => void;
+}
+
+const actionTypes: { value: WorkflowActionType; label: string }[] = [
+  { value: 'sendDirectMessage', label: 'Enviar Mensagem Direta' },
+  { value: 'likePost', label: 'Curtir Post' },
+  { value: 'followUser', label: 'Seguir Usuário' },
+  { value: 'unfollowUser', label: 'Deixar de Seguir' },
+  { value: 'comment', label: 'Comentar' },
+  { value: 'monitorMessages', label: 'Monitorar Mensagens' },
+  { value: 'monitorPosts', label: 'Monitorar Posts' },
+  { value: 'delay', label: 'Aguardar' },
+];
+
+export default function WorkflowSidebar({ 
+  workflow, 
+  selectedStep, 
+  onWorkflowChange, 
+  onStepChange 
+}: WorkflowSidebarProps) {
+  const [newActionType, setNewActionType] = useState<WorkflowActionType>('sendDirectMessage');
+
+  const updateWorkflow = (updates: Partial<Workflow>) => {
+    onWorkflowChange({ ...workflow, ...updates });
+  };
+
+  const updateStep = (updates: Partial<WorkflowStep>) => {
+    if (!selectedStep) return;
+    const updatedStep = { ...selectedStep, ...updates };
+    onStepChange(updatedStep);
+  };
+
+  const addAction = () => {
+    if (!selectedStep) return;
+    
+    const defaultParams = getDefaultParams(newActionType);
+    const newAction: WorkflowAction = {
+      type: newActionType,
+      params: defaultParams,
+      description: ''
+    };
+    
+    updateStep({
+      actions: [...selectedStep.actions, newAction]
+    });
+  };
+
+  const updateAction = (index: number, updates: Partial<WorkflowAction>) => {
+    if (!selectedStep) return;
+    
+    const updatedActions = [...selectedStep.actions];
+    updatedActions[index] = { ...updatedActions[index], ...updates };
+    
+    updateStep({ actions: updatedActions });
+  };
+
+  const removeAction = (index: number) => {
+    if (!selectedStep) return;
+    
+    const updatedActions = selectedStep.actions.filter((_, i) => i !== index);
+    updateStep({ actions: updatedActions });
+  };
+
+  const getDefaultParams = (type: WorkflowActionType): WorkflowActionParams => {
+    switch (type) {
+      case 'sendDirectMessage':
+        return { username: '', message: '' };
+      case 'likePost':
+        return { postUrl: '' };
+      case 'followUser':
+        return { username: '' };
+      case 'unfollowUser':
+        return { username: '' };
+      case 'comment':
+        return { postUrl: '', comment: '' };
+      case 'monitorMessages':
+        return { keywords: [] };
+      case 'monitorPosts':
+        return { hashtags: [] };
+      case 'delay':
+        return { seconds: 60 };
+      default:
+        return {} as WorkflowActionParams;
+    }
+  };
+
+  const renderActionParams = (action: WorkflowAction, index: number) => {
+    const updateParams = (newParams: Partial<WorkflowActionParams>) => {
+      updateAction(index, { params: { ...action.params, ...newParams } });
+    };
+
+    switch (action.type) {
+      case 'sendDirectMessage':
+        const dmParams = action.params as any;
+        return (
+          <div className="space-y-2">
+            <div>
+              <Label className="text-xs">Usuário</Label>
+              <Input
+                value={dmParams.username || ''}
+                onChange={(e) => updateParams({ username: e.target.value })}
+                placeholder="@usuario"
+                className="h-8 text-xs"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Mensagem</Label>
+              <Textarea
+                value={dmParams.message || ''}
+                onChange={(e) => updateParams({ message: e.target.value })}
+                placeholder="Sua mensagem..."
+                className="h-16 text-xs resize-none"
+              />
+            </div>
+          </div>
+        );
+      
+      case 'likePost':
+        const likeParams = action.params as any;
+        return (
+          <div>
+            <Label className="text-xs">URL do Post</Label>
+            <Input
+              value={likeParams.postUrl || ''}
+              onChange={(e) => updateParams({ postUrl: e.target.value })}
+              placeholder="https://instagram.com/p/..."
+              className="h-8 text-xs"
+            />
+          </div>
+        );
+      
+      case 'followUser':
+      case 'unfollowUser':
+        const userParams = action.params as any;
+        return (
+          <div>
+            <Label className="text-xs">Usuário</Label>
+            <Input
+              value={userParams.username || ''}
+              onChange={(e) => updateParams({ username: e.target.value })}
+              placeholder="@usuario"
+              className="h-8 text-xs"
+            />
+          </div>
+        );
+      
+      case 'comment':
+        const commentParams = action.params as any;
+        return (
+          <div className="space-y-2">
+            <div>
+              <Label className="text-xs">URL do Post</Label>
+              <Input
+                value={commentParams.postUrl || ''}
+                onChange={(e) => updateParams({ postUrl: e.target.value })}
+                placeholder="https://instagram.com/p/..."
+                className="h-8 text-xs"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Comentário</Label>
+              <Textarea
+                value={commentParams.comment || ''}
+                onChange={(e) => updateParams({ comment: e.target.value })}
+                placeholder="Seu comentário..."
+                className="h-16 text-xs resize-none"
+              />
+            </div>
+          </div>
+        );
+      
+      case 'delay':
+        const delayParams = action.params as any;
+        return (
+          <div>
+            <Label className="text-xs">Segundos</Label>
+            <Input
+              type="number"
+              value={delayParams.seconds || 60}
+              onChange={(e) => updateParams({ seconds: parseInt(e.target.value) || 60 })}
+              className="h-8 text-xs"
+              min="1"
+            />
+          </div>
+        );
+      
+      default:
+        return (
+          <div className="text-xs text-gray-500">
+            Configuração não implementada para este tipo de ação
+          </div>
+        );
+    }
+  };
+
+  if (!selectedStep) {
+    return (
+      <div className="w-80 bg-white border-l border-gray-200 p-4 overflow-y-auto">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Configurações do Workflow</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <Label>ID</Label>
+              <Input
+                value={workflow.id}
+                onChange={(e) => updateWorkflow({ id: e.target.value })}
+                placeholder="workflow-id"
+              />
+            </div>
+            
+            <div>
+              <Label>Nome</Label>
+              <Input
+                value={workflow.name}
+                onChange={(e) => updateWorkflow({ name: e.target.value })}
+                placeholder="Nome do workflow"
+              />
+            </div>
+            
+            <div>
+              <Label>Descrição</Label>
+              <Textarea
+                value={workflow.description || ''}
+                onChange={(e) => updateWorkflow({ description: e.target.value })}
+                placeholder="Descrição do workflow"
+                className="resize-none"
+              />
+            </div>
+            
+            <div>
+              <Label>Usuário Instagram</Label>
+              <Input
+                value={workflow.username}
+                onChange={(e) => updateWorkflow({ username: e.target.value })}
+                placeholder="@usuario"
+              />
+            </div>
+            
+            <Separator />
+            
+            <div>
+              <Label className="text-sm font-medium">Configurações Avançadas</Label>
+              <div className="mt-2 space-y-2">
+                <div>
+                  <Label className="text-xs">Timeout (segundos)</Label>
+                  <Input
+                    type="number"
+                    value={workflow.config?.timeoutSeconds || 300}
+                    onChange={(e) => updateWorkflow({ 
+                      config: { 
+                        ...workflow.config, 
+                        timeoutSeconds: parseInt(e.target.value) || 300 
+                      } 
+                    })}
+                    className="h-8"
+                  />
+                </div>
+                
+                <div>
+                  <Label className="text-xs">Ação em caso de erro</Label>
+                  <Select
+                    value={workflow.config?.onError || 'stop'}
+                    onValueChange={(value: 'stop' | 'continue' | 'retry') => 
+                      updateWorkflow({ 
+                        config: { 
+                          ...workflow.config, 
+                          onError: value 
+                        } 
+                      })
+                    }
+                  >
+                    <SelectTrigger className="h-8">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="stop">Parar</SelectItem>
+                      <SelectItem value="continue">Continuar</SelectItem>
+                      <SelectItem value="retry">Tentar novamente</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  return (
+    <div className="w-80 bg-white border-l border-gray-200 p-4 overflow-y-auto">
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Configurações do Step</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <Label>Nome</Label>
+            <Input
+              value={selectedStep.name}
+              onChange={(e) => updateStep({ name: e.target.value })}
+              placeholder="Nome do step"
+            />
+          </div>
+          
+          <div>
+            <Label>Condição (opcional)</Label>
+            <Input
+              value={selectedStep.condition || ''}
+              onChange={(e) => updateStep({ condition: e.target.value })}
+              placeholder="ex: success == true"
+            />
+          </div>
+          
+          <div>
+            <Label className="text-sm font-medium">Retry (opcional)</Label>
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              <div>
+                <Label className="text-xs">Max tentativas</Label>
+                <Input
+                  type="number"
+                  value={selectedStep.retry?.maxAttempts || 1}
+                  onChange={(e) => updateStep({ 
+                    retry: { 
+                      ...selectedStep.retry, 
+                      maxAttempts: parseInt(e.target.value) || 1,
+                      delaySeconds: selectedStep.retry?.delaySeconds || 5
+                    } 
+                  })}
+                  className="h-8"
+                  min="1"
+                />
+              </div>
+              <div>
+                <Label className="text-xs">Delay (seg)</Label>
+                <Input
+                  type="number"
+                  value={selectedStep.retry?.delaySeconds || 5}
+                  onChange={(e) => updateStep({ 
+                    retry: { 
+                      ...selectedStep.retry, 
+                      maxAttempts: selectedStep.retry?.maxAttempts || 1,
+                      delaySeconds: parseInt(e.target.value) || 5
+                    } 
+                  })}
+                  className="h-8"
+                  min="1"
+                />
+              </div>
+            </div>
+          </div>
+          
+          <Separator />
+          
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <Label className="text-sm font-medium">Ações</Label>
+              <Badge variant="secondary">{selectedStep.actions.length}</Badge>
+            </div>
+            
+            <div className="space-y-3">
+              {selectedStep.actions.map((action, index) => (
+                <Card key={index} className="p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <Badge className="text-xs">
+                      {actionTypes.find(t => t.value === action.type)?.label || action.type}
+                    </Badge>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 w-6 p-0 hover:bg-red-100 hover:text-red-600"
+                      onClick={() => removeAction(index)}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <div>
+                      <Label className="text-xs">Descrição</Label>
+                      <Input
+                        value={action.description || ''}
+                        onChange={(e) => updateAction(index, { description: e.target.value })}
+                        placeholder="Descrição da ação"
+                        className="h-8 text-xs"
+                      />
+                    </div>
+                    
+                    {renderActionParams(action, index)}
+                  </div>
+                </Card>
+              ))}
+              
+              <div className="flex gap-2">
+                <Select value={newActionType} onValueChange={setNewActionType}>
+                  <SelectTrigger className="h-8 flex-1">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {actionTypes.map((type) => (
+                      <SelectItem key={type.value} value={type.value}>
+                        {type.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 px-3"
+                  onClick={addAction}
+                >
+                  <Plus className="h-3 w-3" />
+                </Button>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
