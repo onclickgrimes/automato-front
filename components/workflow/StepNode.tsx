@@ -62,7 +62,7 @@ export default function StepNode({ data, selected }: NodeProps<StepNodeData>) {
       <Handle
         type="target"
         position={Position.Top}
-        className="w-3 h-3 !bg-gray-400 border-2 border-white"
+        className="w-4 h-4 !bg-gray-400 border-2 border-white"
       />
       
       <Card 
@@ -158,7 +158,7 @@ export default function StepNode({ data, selected }: NodeProps<StepNodeData>) {
       <Handle
         type="source"
         position={Position.Bottom}
-        className="w-3 h-3 !bg-gray-400 border-2 border-white"
+        className="w-4 h-4 !bg-gray-400 border-2 border-white"
       />
     </div>
   );

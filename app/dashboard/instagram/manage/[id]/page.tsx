@@ -443,17 +443,12 @@ export default function InstagramControlPanel() {
                 </Button>
                 
                 <Button 
-                  onClick={checkActiveInstances}
-                  disabled={isCheckingActive}
+                  onClick={() => router.push('/dashboard/instagram/flows')}
                   variant="outline"
                   className="h-16 flex flex-col items-center justify-center space-y-1"
                 >
-                  {isCheckingActive ? (
-                    <RefreshCw className="w-6 h-6 animate-spin" />
-                  ) : (
-                    <Users className="w-6 h-6" />
-                  )}
-                  <span className="text-sm">Verificar Ativos</span>
+                  <Users className="w-6 h-6" />
+                  <span className="text-sm">Workflows</span>
                 </Button>
               </div>
             </CardContent>

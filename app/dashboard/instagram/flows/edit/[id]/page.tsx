@@ -5,17 +5,18 @@ import { Workflow } from '@/lib/types/workflow';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, use } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 
 interface EditFlowPageProps {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }
 
 export default function EditFlowPage({ params }: EditFlowPageProps) {
-  const { user } = useAuth();
+  const { id } = use(params);
+  const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const supabase = createClient();
   const [workflow, setWorkflow] = useState<Workflow | null>(null);
@@ -23,20 +24,24 @@ export default function EditFlowPage({ params }: EditFlowPageProps) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (authLoading) {
+      return; // Aguarda o carregamento da autenticação
+    }
+
     if (!user) {
       router.push('/login');
       return;
     }
 
     loadWorkflow();
-  }, [user, params.id]);
+  }, [user, authLoading, id]);
 
   const loadWorkflow = async () => {
     try {
       const { data, error } = await supabase
         .from('workflows')
         .select('*')
-        .eq('id', params.id)
+        .eq('id', id)
         .eq('user_id', user?.id)
         .single();
 
@@ -62,7 +67,7 @@ export default function EditFlowPage({ params }: EditFlowPageProps) {
     setWorkflow(updatedWorkflow);
   };
 
-  if (loading) {
+  if (authLoading || loading) {
     return (
       <div className="h-screen flex items-center justify-center">
         <Card className="w-96">
