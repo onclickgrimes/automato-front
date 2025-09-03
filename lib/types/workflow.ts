@@ -111,7 +111,6 @@ export interface Workflow {
   id: string;
   name: string;
   description?: string;
-  instanceName: string;
   steps: WorkflowStep[];
   config?: WorkflowConfig;
 }

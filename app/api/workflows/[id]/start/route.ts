@@ -82,7 +82,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        ...workflow,
+        workflow: {
+          ...workflow,
+          instanceName: account.username
+        },
         instanceName: account.username
       })
     });

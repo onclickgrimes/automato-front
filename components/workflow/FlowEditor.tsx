@@ -52,7 +52,6 @@ export default function FlowEditor({ initialWorkflow, onSave }: FlowEditorProps)
     id: `workflow-${Date.now()}`,
     name: 'Novo Workflow',
     description: '',
-    instanceName: '',
     steps: [],
     config: {
       timeout: 300000,
