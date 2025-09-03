@@ -74,7 +74,7 @@ interface WorkflowRecord {
     id: string;
     name: string;
     description?: string;
-    username: string;
+    instanceName: string;
     steps: any[];
   };
   created_at: string;
@@ -342,7 +342,7 @@ export function InstagramAccountManager() {
    };
 
   // Função para carregar workflows favoritos para uma conta específica
-  const loadFavoriteWorkflows = async (username: string) => {
+  const loadFavoriteWorkflows = async (accountUsername: string) => {
     if (!user) return;
     
     try {
@@ -351,7 +351,7 @@ export function InstagramAccountManager() {
         .select('*')
         .eq('user_id', user.id)
         .eq('favorite', true)
-        .eq('workflow->>username', username)
+        .eq('workflow->>instanceName', accountUsername)
         .order('updated_at', { ascending: false })
         .limit(3);
 
@@ -362,7 +362,7 @@ export function InstagramAccountManager() {
 
       setFavoriteWorkflows(prev => ({
         ...prev,
-        [username]: data || []
+        [accountUsername]: data || []
       }));
     } catch (error) {
       console.error('Erro ao carregar workflows favoritos:', error);

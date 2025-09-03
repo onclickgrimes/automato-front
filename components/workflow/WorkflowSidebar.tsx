@@ -90,7 +90,7 @@ export default function WorkflowSidebar({
   const getDefaultParams = (type: WorkflowActionType): any => {
     switch (type) {
       case 'sendDirectMessage':
-        return { username: '', message: '' };
+        return { user: '', message: '' };
       case 'likePost':
         return { postId: '' };
       case 'followUser':
@@ -127,8 +127,8 @@ export default function WorkflowSidebar({
             <div>
               <Label className="text-xs">Usuário</Label>
               <Input
-                value={dmParams.username || ''}
-                onChange={(e) => updateParams({ username: e.target.value })}
+                value={dmParams.user || ''}
+                onChange={(e) => updateParams({ user: e.target.value })}
                 placeholder="@usuario"
                 className="h-8 text-xs"
               />
@@ -256,15 +256,6 @@ export default function WorkflowSidebar({
                 onChange={(e) => updateWorkflow({ description: e.target.value })}
                 placeholder="Descrição do workflow"
                 className="resize-none"
-              />
-            </div>
-            
-            <div>
-              <Label>Usuário Instagram</Label>
-              <Input
-                value={workflow.username}
-                onChange={(e) => updateWorkflow({ username: e.target.value })}
-                placeholder="@usuario"
               />
             </div>
             

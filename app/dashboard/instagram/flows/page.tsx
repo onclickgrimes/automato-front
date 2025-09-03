@@ -273,9 +273,9 @@ export default function WorkflowsPage() {
                             <Clock className="w-4 h-4" />
                             Atualizado em {formatDate(workflowRecord.updated_at)}
                           </div>
-                          {workflow.username && (
+                          {workflow.instanceName && (
                             <div>
-                              Usuário: @{workflow.username}
+                              Instância: @{workflow.instanceName}
                             </div>
                           )}
                         </div>
