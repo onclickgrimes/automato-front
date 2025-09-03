@@ -18,9 +18,22 @@ import {
   ArrowLeft,
   Zap,
   CheckCircle,
-  XCircle
+  XCircle,
+  Eye,
+  EyeOff,
+  Edit,
+  Save,
+  X,
+  Star,
+  Workflow
 } from 'lucide-react';
 import { InstagramAccount } from '@/lib/types/instagram-accounts';
+import { Workflow as WorkflowType } from '@/lib/types/workflow';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
+import { Textarea } from '@/components/ui/textarea';
+import { createClient } from '@/lib/supabase/client';
 
 interface LogEntry {
   id: string;
@@ -50,12 +63,24 @@ export default function InstagramControlPanel() {
   const [isCheckingStatus, setIsCheckingStatus] = useState(false);
   const [isCheckingActive, setIsCheckingActive] = useState(false);
   
+  // Estados para edição de conta
+  const [isEditingAccount, setIsEditingAccount] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showCookie, setShowCookie] = useState(false);
+  const [editedAccount, setEditedAccount] = useState<Partial<InstagramAccount>>({});
+  
+  // Estados para workflows favoritos
+  const [favoriteWorkflows, setFavoriteWorkflows] = useState<WorkflowType[]>([]);
+  const [workflowStatuses, setWorkflowStatuses] = useState<Record<string, 'running' | 'stopped'>>({});
+  const [isLoadingWorkflows, setIsLoadingWorkflows] = useState(false);
+  
   // Logs
   const [logs, setLogs] = useState<LogEntry[]>([]);
 
   // Carregar dados iniciais
   useEffect(() => {
     loadInitialData();
+    loadFavoriteWorkflows();
   }, [accountId]);
 
   // Auto-scroll dos logs
@@ -92,6 +117,7 @@ export default function InstagramControlPanel() {
         const current = accountsResult.data.find((acc: InstagramAccount) => acc.id === accountId);
         if (current) {
           setCurrentAccount(current);
+          setEditedAccount(current);
           addLog('success', `Conta @${current.username} carregada com sucesso`);
           
           // Verificar status inicial
@@ -106,6 +132,32 @@ export default function InstagramControlPanel() {
       addLog('error', `Erro ao carregar dados: ${errorMsg}`);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const loadFavoriteWorkflows = async () => {
+    try {
+      setIsLoadingWorkflows(true);
+      const supabase = createClient();
+      
+      const { data, error } = await supabase
+        .from('workflows')
+        .select('*')
+        .eq('favorite', true)
+        .order('created_at', { ascending: false });
+      
+      if (error) {
+        throw error;
+      }
+      
+      const workflows = data?.map(record => record.workflow as WorkflowType) || [];
+      setFavoriteWorkflows(workflows);
+      addLog('info', `${workflows.length} workflow(s) favorito(s) carregado(s)`);
+    } catch (err) {
+      console.error('Erro ao carregar workflows favoritos:', err);
+      addLog('error', 'Erro ao carregar workflows favoritos');
+    } finally {
+      setIsLoadingWorkflows(false);
     }
   };
 
@@ -277,6 +329,105 @@ export default function InstagramControlPanel() {
   const handleAccountChange = (newAccountId: string) => {
     if (newAccountId !== accountId) {
       router.push(`/dashboard/instagram/manage/${newAccountId}`);
+    }
+  };
+
+  const saveAccountChanges = async () => {
+    if (!currentAccount || !editedAccount) return;
+    
+    try {
+      addLog('info', 'Salvando alterações da conta...');
+      
+      const response = await fetch(`/api/instagram-accounts/${currentAccount.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(editedAccount)
+      });
+      
+      if (!response.ok) {
+        throw new Error('Erro ao salvar alterações');
+      }
+      
+      const result = await response.json();
+      if (result.success) {
+        setCurrentAccount(result.data);
+        setIsEditingAccount(false);
+        addLog('success', 'Conta atualizada com sucesso!');
+      } else {
+        throw new Error(result.error || 'Erro ao salvar');
+      }
+    } catch (err) {
+      console.error('Erro ao salvar conta:', err);
+      addLog('error', `Erro ao salvar: ${err instanceof Error ? err.message : 'Erro desconhecido'}`);
+    }
+  };
+
+  const cancelAccountEdit = () => {
+    setEditedAccount(currentAccount || {});
+    setIsEditingAccount(false);
+    setShowPassword(false);
+    setShowCookie(false);
+  };
+
+  const startWorkflow = async (workflowId: string) => {
+    try {
+      addLog('info', `Iniciando workflow ${workflowId}...`);
+      setWorkflowStatuses(prev => ({ ...prev, [workflowId]: 'running' }));
+      
+      const response = await fetch(`/api/workflows/${workflowId}/start`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          account_id: params.id
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Falha ao iniciar workflow');
+      }
+
+      const result = await response.json();
+      console.log('Workflow iniciado com sucesso:', result);
+      
+      addLog('success', `Workflow "${favoriteWorkflows.find(w => w.id === workflowId)?.name}" iniciado com sucesso!`);
+    } catch (err) {
+      console.error('Erro ao iniciar workflow:', err);
+      addLog('error', `Erro ao iniciar workflow: ${err instanceof Error ? err.message : 'Erro desconhecido'}`);
+      setWorkflowStatuses(prev => ({ ...prev, [workflowId]: 'stopped' }));
+    }
+  };
+
+  const stopWorkflow = async (workflowId: string) => {
+    try {
+      addLog('info', `Parando workflow ${workflowId}...`);
+      setWorkflowStatuses(prev => ({ ...prev, [workflowId]: 'stopped' }));
+      
+      const response = await fetch(`/api/workflows/${workflowId}/stop`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          account_id: params.id
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Falha ao parar workflow');
+      }
+
+      const result = await response.json();
+      console.log('Workflow parado com sucesso:', result);
+      
+      addLog('success', `Workflow "${favoriteWorkflows.find(w => w.id === workflowId)?.name}" parado com sucesso!`);
+    } catch (err) {
+      console.error('Erro ao parar workflow:', err);
+      addLog('error', `Erro ao parar workflow: ${err instanceof Error ? err.message : 'Erro desconhecido'}`);
+      setWorkflowStatuses(prev => ({ ...prev, [workflowId]: 'running' }));
     }
   };
 
@@ -457,21 +608,140 @@ export default function InstagramControlPanel() {
           {/* Informações da Conta */}
           <Card>
             <CardHeader>
-              <CardTitle>Informações da Conta</CardTitle>
+              <CardTitle className="flex items-center justify-between">
+                Informações da Conta
+                <div className="flex items-center gap-2">
+                  {isEditingAccount ? (
+                    <>
+                      <Button size="sm" onClick={saveAccountChanges}>
+                        <Save className="w-4 h-4 mr-1" />
+                        Salvar
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={cancelAccountEdit}>
+                        <X className="w-4 h-4 mr-1" />
+                        Cancelar
+                      </Button>
+                    </>
+                  ) : (
+                    <Button size="sm" variant="outline" onClick={() => setIsEditingAccount(true)}>
+                      <Edit className="w-4 h-4 mr-1" />
+                      Editar
+                    </Button>
+                  )}
+                </div>
+              </CardTitle>
             </CardHeader>
             <CardContent>
               {currentAccount && (
-                <div className="space-y-3">
-                  <div className="flex justify-between">
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center">
                     <span className="text-sm text-gray-600">Username:</span>
                     <span className="font-medium">@{currentAccount.username}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Tipo de Auth:</span>
-                    <Badge variant={currentAccount.auth_type === 'credentials' ? 'default' : 'secondary'}>
-                      {currentAccount.auth_type === 'credentials' ? 'Credenciais' : 'Cookie'}
-                    </Badge>
+                  
+                  {/* Toggle de Tipo de Autenticação */}
+                  <div className="space-y-2">
+                    <Label className="text-sm text-gray-600">Tipo de Autenticação:</Label>
+                    <div className="flex items-center space-x-3">
+                      <span className={`text-sm ${editedAccount.auth_type === 'credentials' ? 'font-medium' : 'text-gray-500'}`}>
+                        Credenciais
+                      </span>
+                      <Switch
+                        checked={editedAccount.auth_type === 'cookie'}
+                        onCheckedChange={(checked) => {
+                          if (isEditingAccount) {
+                            setEditedAccount(prev => ({
+                              ...prev,
+                              auth_type: checked ? 'cookie' : 'credentials'
+                            }));
+                          }
+                        }}
+                        disabled={!isEditingAccount}
+                      />
+                      <span className={`text-sm ${editedAccount.auth_type === 'cookie' ? 'font-medium' : 'text-gray-500'}`}>
+                        Cookie
+                      </span>
+                    </div>
                   </div>
+
+                  {/* Campo de Senha (apenas para credentials) */}
+                  {editedAccount.auth_type === 'credentials' && (
+                    <div className="space-y-2">
+                      <Label className="text-sm text-gray-600">Senha:</Label>
+                      {isEditingAccount ? (
+                        <div className="relative">
+                          <Input
+                            type={showPassword ? 'text' : 'password'}
+                            value={editedAccount.password || ''}
+                            onChange={(e) => setEditedAccount(prev => ({ ...prev, password: e.target.value }))}
+                            placeholder="Digite a senha"
+                          />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="absolute right-0 top-0 h-full px-3"
+                            onClick={() => setShowPassword(!showPassword)}
+                          >
+                            {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-gray-500">••••••••</span>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setShowPassword(!showPassword)}
+                          >
+                            {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Campo de Cookie (apenas para cookie) */}
+                  {editedAccount.auth_type === 'cookie' && (
+                    <div className="space-y-2">
+                      <Label className="text-sm text-gray-600">Cookie:</Label>
+                      {isEditingAccount ? (
+                        <div className="space-y-2">
+                          <Textarea
+                            value={editedAccount.cookie || ''}
+                            onChange={(e) => setEditedAccount(prev => ({ ...prev, cookie: e.target.value }))}
+                            placeholder="Cole o cookie aqui"
+                            className="min-h-[100px] font-mono text-xs"
+                          />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setShowCookie(!showCookie)}
+                          >
+                            {showCookie ? <EyeOff className="w-4 h-4 mr-1" /> : <Eye className="w-4 h-4 mr-1" />}
+                            {showCookie ? 'Ocultar' : 'Mostrar'} Cookie
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-gray-500 font-mono">
+                            {showCookie ? (currentAccount.cookie || 'Não definido') : '••••••••••••••••'}
+                          </span>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setShowCookie(!showCookie)}
+                          >
+                            {showCookie ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  
                   <div className="flex justify-between">
                     <span className="text-sm text-gray-600">Status Login:</span>
                     <Badge variant={currentAccount.is_logged_in ? 'default' : 'destructive'}>
@@ -530,6 +800,74 @@ export default function InstagramControlPanel() {
                 </div>
               )}
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Workflows Favoritos */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Star className="w-5 h-5 text-yellow-500" />
+              Workflows Favoritos
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {isLoadingWorkflows ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                <span className="ml-2 text-sm text-gray-600">Carregando workflows...</span>
+              </div>
+            ) : favoriteWorkflows.length === 0 ? (
+              <div className="text-center py-8">
+                <Workflow className="w-12 h-12 text-gray-400 mx-auto mb-2" />
+                <p className="text-gray-500 text-sm">Nenhum workflow favorito encontrado</p>
+                <p className="text-gray-400 text-xs mt-1">Marque workflows como favoritos para acesso rápido</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {favoriteWorkflows.map((workflow) => {
+                  const status = workflowStatuses[workflow.id] || 'stopped';
+                  const isRunning = status === 'running';
+                  
+                  return (
+                    <div key={workflow.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50 transition-colors">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <Workflow className="w-4 h-4 text-blue-600" />
+                          <h4 className="font-medium text-sm">{workflow.name}</h4>
+                          <Badge variant={isRunning ? 'default' : 'secondary'} className="text-xs">
+                            {isRunning ? 'Executando' : 'Parado'}
+                          </Badge>
+                        </div>
+                        {workflow.description && (
+                          <p className="text-xs text-gray-600 mt-1 ml-6">{workflow.description}</p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {isRunning ? (
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => stopWorkflow(workflow.id)}
+                            className="text-xs"
+                          >
+                            Parar
+                          </Button>
+                        ) : (
+                          <Button
+                            size="sm"
+                            onClick={() => startWorkflow(workflow.id)}
+                            className="text-xs"
+                          >
+                            Iniciar
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

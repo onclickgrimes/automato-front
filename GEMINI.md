@@ -8,6 +8,7 @@ CREATE TABLE public.workflows (
   id text PRIMARY KEY,
   user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   workflow jsonb NOT NULL,
+  favorite boolean DEFAULT false,
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now()
 );
