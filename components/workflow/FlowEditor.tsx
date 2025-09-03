@@ -189,7 +189,7 @@ export default function FlowEditor({ initialWorkflow, onSave }: FlowEditorProps)
         
         setWorkflow(prev => ({
           ...prev,
-          steps: [...prev.steps, newStep]
+          steps: [...(prev.steps || []), newStep]
         }));
       }
     },
@@ -231,7 +231,7 @@ export default function FlowEditor({ initialWorkflow, onSave }: FlowEditorProps)
     
     setWorkflow(prev => ({
       ...prev,
-      steps: [...prev.steps, newStep]
+      steps: [...(prev.steps || []), newStep]
     }));
     
     setSelectedStepId(newStep.id);
