@@ -34,6 +34,8 @@ const actionTypes: { value: WorkflowActionType; label: string }[] = [
   { value: 'monitorMessages', label: 'Monitorar Mensagens' },
   { value: 'monitorPosts', label: 'Monitorar Posts' },
   { value: 'delay', label: 'Aguardar' },
+  { value: 'startMessageProcessor', label: 'Iniciar Processador de Mensagens' },
+  { value: 'stopMessageProcessor', label: 'Parar Processador de Mensagens' },
 ];
 
 export default function WorkflowSidebar({ 
@@ -85,31 +87,35 @@ export default function WorkflowSidebar({
     updateStep({ actions: updatedActions });
   };
 
-  const getDefaultParams = (type: WorkflowActionType): WorkflowActionParams => {
+  const getDefaultParams = (type: WorkflowActionType): any => {
     switch (type) {
       case 'sendDirectMessage':
         return { username: '', message: '' };
       case 'likePost':
-        return { postUrl: '' };
+        return { postId: '' };
       case 'followUser':
         return { username: '' };
       case 'unfollowUser':
         return { username: '' };
       case 'comment':
-        return { postUrl: '', comment: '' };
+        return { postId: '', comment: '' };
       case 'monitorMessages':
         return { keywords: [] };
       case 'monitorPosts':
         return { hashtags: [] };
       case 'delay':
-        return { seconds: 60 };
+        return { duration: 60000 }; // em milissegundos
+      case 'startMessageProcessor':
+        return { aiConfig: {}, processingConfig: {} };
+      case 'stopMessageProcessor':
+        return {};
       default:
-        return {} as WorkflowActionParams;
+        return {};
     }
   };
 
   const renderActionParams = (action: WorkflowAction, index: number) => {
-    const updateParams = (newParams: Partial<WorkflowActionParams>) => {
+    const updateParams = (newParams: any) => {
       updateAction(index, { params: { ...action.params, ...newParams } });
     };
 
@@ -145,8 +151,8 @@ export default function WorkflowSidebar({
           <div>
             <Label className="text-xs">URL do Post</Label>
             <Input
-              value={likeParams.postUrl || ''}
-              onChange={(e) => updateParams({ postUrl: e.target.value })}
+              value={likeParams.postId || ''}
+              onChange={(e) => updateParams({ postId: e.target.value })}
               placeholder="https://instagram.com/p/..."
               className="h-8 text-xs"
             />
@@ -175,8 +181,8 @@ export default function WorkflowSidebar({
             <div>
               <Label className="text-xs">URL do Post</Label>
               <Input
-                value={commentParams.postUrl || ''}
-                onChange={(e) => updateParams({ postUrl: e.target.value })}
+                value={commentParams.postId || ''}
+                onChange={(e) => updateParams({ postId: e.target.value })}
                 placeholder="https://instagram.com/p/..."
                 className="h-8 text-xs"
               />
@@ -197,11 +203,11 @@ export default function WorkflowSidebar({
         const delayParams = action.params as any;
         return (
           <div>
-            <Label className="text-xs">Segundos</Label>
+            <Label className="text-xs">Duração (ms)</Label>
             <Input
               type="number"
-              value={delayParams.seconds || 60}
-              onChange={(e) => updateParams({ seconds: parseInt(e.target.value) || 60 })}
+              value={delayParams.duration || 60000}
+              onChange={(e) => updateParams({ duration: parseInt(e.target.value) || 60000 })}
               className="h-8 text-xs"
               min="1"
             />
@@ -268,14 +274,14 @@ export default function WorkflowSidebar({
               <Label className="text-sm font-medium">Configurações Avançadas</Label>
               <div className="mt-2 space-y-2">
                 <div>
-                  <Label className="text-xs">Timeout (segundos)</Label>
+                  <Label className="text-xs">Timeout (ms)</Label>
                   <Input
                     type="number"
-                    value={workflow.config?.timeoutSeconds || 300}
+                    value={workflow.config?.timeout || 300000}
                     onChange={(e) => updateWorkflow({ 
                       config: { 
                         ...workflow.config, 
-                        timeoutSeconds: parseInt(e.target.value) || 300 
+                        timeout: parseInt(e.target.value) || 300000 
                       } 
                     })}
                     className="h-8"
@@ -283,14 +289,14 @@ export default function WorkflowSidebar({
                 </div>
                 
                 <div>
-                  <Label className="text-xs">Ação em caso de erro</Label>
+                  <Label className="text-xs">Parar em caso de erro</Label>
                   <Select
-                    value={workflow.config?.onError || 'stop'}
-                    onValueChange={(value: 'stop' | 'continue' | 'retry') => 
+                    value={workflow.config?.stopOnError ? 'true' : 'false'}
+                    onValueChange={(value: string) => 
                       updateWorkflow({ 
                         config: { 
                           ...workflow.config, 
-                          onError: value 
+                          stopOnError: value === 'true' 
                         } 
                       })
                     }
@@ -299,9 +305,8 @@ export default function WorkflowSidebar({
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="stop">Parar</SelectItem>
-                      <SelectItem value="continue">Continuar</SelectItem>
-                      <SelectItem value="retry">Tentar novamente</SelectItem>
+                      <SelectItem value="true">Sim</SelectItem>
+                      <SelectItem value="false">Não</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -358,15 +363,15 @@ export default function WorkflowSidebar({
                 />
               </div>
               <div>
-                <Label className="text-xs">Delay (seg)</Label>
+                <Label className="text-xs">Delay (ms)</Label>
                 <Input
                   type="number"
-                  value={selectedStep.retry?.delaySeconds || 5}
+                  value={selectedStep.retry?.delayMs || 5000}
                   onChange={(e) => updateStep({ 
                     retry: { 
                       ...selectedStep.retry, 
                       maxAttempts: selectedStep.retry?.maxAttempts || 1,
-                      delaySeconds: parseInt(e.target.value) || 5
+                      delayMs: parseInt(e.target.value) || 5000
                     } 
                   })}
                   className="h-8"

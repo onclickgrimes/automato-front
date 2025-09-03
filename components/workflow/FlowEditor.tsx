@@ -55,10 +55,16 @@ export default function FlowEditor({ initialWorkflow, onSave }: FlowEditorProps)
     username: '',
     steps: [],
     config: {
-      timeoutSeconds: 300,
-      onError: 'stop'
+      timeout: 300000,
+      stopOnError: false
     }
   });
+
+  // Garantir que workflow.steps seja sempre um array usando useMemo para evitar recriação
+  const safeWorkflow = React.useMemo(() => ({
+    ...workflow,
+    steps: workflow.steps || []
+  }), [workflow]);
   
   const [selectedStepId, setSelectedStepId] = useState<string | undefined>();
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
@@ -69,14 +75,14 @@ export default function FlowEditor({ initialWorkflow, onSave }: FlowEditorProps)
   React.useEffect(() => {
     setNodes((currentNodes) => {
       const existingNodeIds = new Set(currentNodes.map(node => node.id));
-      const workflowStepIds = new Set(workflow.steps.map(step => step.id));
+      const workflowStepIds = new Set(safeWorkflow.steps.map(step => step.id));
       
       // Remover nós que não existem mais no workflow
       const filteredNodes = currentNodes.filter(node => workflowStepIds.has(node.id));
       
       // Atualizar dados dos nós existentes
       const updatedNodes = filteredNodes.map(node => {
-        const step = workflow.steps.find(s => s.id === node.id);
+        const step = safeWorkflow.steps.find(s => s.id === node.id);
         if (step) {
           return {
             ...node,
@@ -93,8 +99,8 @@ export default function FlowEditor({ initialWorkflow, onSave }: FlowEditorProps)
         return node;
       });
       
-      // Adicionar novos nós para steps que não existem ainda
-      const newNodes = workflow.steps
+      // Criar novos nós para steps que não têm nós correspondentes
+      const newNodes = safeWorkflow.steps
         .filter(step => !existingNodeIds.has(step.id))
         .map((step, index) => {
           const existingCount = updatedNodes.length;
@@ -117,9 +123,9 @@ export default function FlowEditor({ initialWorkflow, onSave }: FlowEditorProps)
       
       return [...updatedNodes, ...newNodes];
     });
-  }, [workflow.steps, selectedStepId, setNodes]);
+  }, [safeWorkflow.steps, selectedStepId]);
 
-  const selectedStep = workflow.steps.find(step => step.id === selectedStepId);
+  const selectedStep = safeWorkflow.steps.find(step => step.id === selectedStepId);
 
   const onConnect = useCallback(
     (params: Connection) => setEdges((eds) => addEdge(params, eds)),
@@ -173,7 +179,7 @@ export default function FlowEditor({ initialWorkflow, onSave }: FlowEditorProps)
         // Criar novo step com a ação
         const newStep: WorkflowStep = {
           id: `step-${Date.now()}`,
-          name: `Step ${workflow.steps.length + 1}`,
+          name: `Step ${safeWorkflow.steps.length + 1}`,
           actions: [{
             type: actionType,
             params: getDefaultParams(actionType),
@@ -187,7 +193,7 @@ export default function FlowEditor({ initialWorkflow, onSave }: FlowEditorProps)
         }));
       }
     },
-    [reactFlowInstance, nodes, workflow.steps]
+    [reactFlowInstance, nodes, safeWorkflow.steps]
   );
 
   const getDefaultParams = (type: WorkflowActionType): any => {
@@ -195,18 +201,22 @@ export default function FlowEditor({ initialWorkflow, onSave }: FlowEditorProps)
       case 'sendDirectMessage':
         return { username: '', message: '' };
       case 'likePost':
-        return { postUrl: '' };
+        return { postId: '' };
       case 'followUser':
       case 'unfollowUser':
         return { username: '' };
       case 'comment':
-        return { postUrl: '', comment: '' };
+        return { postId: '', comment: '' };
       case 'monitorMessages':
         return { keywords: [] };
       case 'monitorPosts':
         return { hashtags: [] };
       case 'delay':
-        return { seconds: 60 };
+        return { duration: 60000 }; // em milissegundos
+      case 'startMessageProcessor':
+        return { aiConfig: {}, processingConfig: {} };
+      case 'stopMessageProcessor':
+        return {};
       default:
         return {};
     }
@@ -215,7 +225,7 @@ export default function FlowEditor({ initialWorkflow, onSave }: FlowEditorProps)
   const handleAddStep = () => {
     const newStep: WorkflowStep = {
       id: `step-${Date.now()}`,
-      name: `Step ${workflow.steps.length + 1}`,
+      name: `Step ${safeWorkflow.steps.length + 1}`,
       actions: []
     };
     
@@ -227,7 +237,7 @@ export default function FlowEditor({ initialWorkflow, onSave }: FlowEditorProps)
     setSelectedStepId(newStep.id);
   };
 
-  const handleAddActionToStep = (stepId: string, actionType?: WorkflowActionType) => {
+  const handleAddActionToStep = useCallback((stepId: string, actionType?: WorkflowActionType) => {
     if (!actionType) {
       setSelectedStepId(stepId);
       return;
@@ -241,37 +251,37 @@ export default function FlowEditor({ initialWorkflow, onSave }: FlowEditorProps)
 
     setWorkflow(prev => ({
       ...prev,
-      steps: prev.steps.map(step => 
+      steps: (prev.steps || []).map(step => 
         step.id === stepId 
-          ? { ...step, actions: [...step.actions, newAction] }
+          ? { ...step, actions: [...(step.actions || []), newAction] }
           : step
       )
     }));
-  };
+  }, []);
 
-  const handleDeleteStep = (stepId: string) => {
+  const handleDeleteStep = useCallback((stepId: string) => {
     setWorkflow(prev => ({
       ...prev,
-      steps: prev.steps.filter(step => step.id !== stepId)
+      steps: (prev.steps || []).filter(step => step.id !== stepId)
     }));
     
     if (selectedStepId === stepId) {
       setSelectedStepId(undefined);
     }
-  };
+  }, [selectedStepId]);
 
-  const handleWorkflowChange = (updatedWorkflow: Workflow) => {
+  const handleWorkflowChange = useCallback((updatedWorkflow: Workflow) => {
     setWorkflow(updatedWorkflow);
-  };
+  }, []);
 
-  const handleStepChange = (updatedStep: WorkflowStep) => {
+  const handleStepChange = useCallback((updatedStep: WorkflowStep) => {
     setWorkflow(prev => ({
       ...prev,
-      steps: prev.steps.map(step => 
+      steps: (prev.steps || []).map(step => 
         step.id === updatedStep.id ? updatedStep : step
       )
     }));
-  };
+  }, []);
 
   const handleExportJSON = () => {
     const dataStr = JSON.stringify(workflow, null, 2);
@@ -304,7 +314,7 @@ export default function FlowEditor({ initialWorkflow, onSave }: FlowEditorProps)
       return;
     }
 
-    if (workflow.steps.length === 0) {
+    if (safeWorkflow.steps.length === 0) {
       toast({
         title: 'Erro',
         description: 'O workflow precisa ter pelo menos um step.',

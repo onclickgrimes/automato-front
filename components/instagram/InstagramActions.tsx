@@ -26,8 +26,8 @@ export function InstagramActions({ className }: InstagramActionsProps) {
   
   const activeAccount = getActiveAccount();
   // Estados dos formulários
-  const [likeForm, setLikeForm] = useState({ postUrl: '' });
-  const [commentForm, setCommentForm] = useState({ postUrl: '', comment: '' });
+  const [likeForm, setLikeForm] = useState({ postId: '' });
+  const [commentForm, setCommentForm] = useState({ postId: '', comment: '' });
   const [followForm, setFollowForm] = useState({ username: '' });
   const [bulkActions, setBulkActions] = useState<Array<{
     type: string;
@@ -37,27 +37,27 @@ export function InstagramActions({ className }: InstagramActionsProps) {
   const [lastResult, setLastResult] = useState<string | null>(null);
 
   const handleLikeAction = async () => {
-    if (!likeForm.postUrl || !activeAccount) return;
+    if (!likeForm.postId || !activeAccount) return;
     
     await executeActions([
       {
         type: 'like',
-        data: { postUrl: likeForm.postUrl, accountId: activeAccount.id },
+        data: { postId: likeForm.postId, accountId: activeAccount.id },
         delay: 1000
       }
     ]);
     
-    setLikeForm({ postUrl: '' });
+    setLikeForm({ postId: '' });
   };
 
   const handleCommentAction = async () => {
-    if (!commentForm.postUrl || !commentForm.comment || !activeAccount) return;
+    if (!commentForm.postId || !commentForm.comment || !activeAccount) return;
     
     await executeActions([
       {
         type: 'comment',
         data: {
-          postUrl: commentForm.postUrl,
+          postId: commentForm.postId,
           comment: commentForm.comment,
           accountId: activeAccount.id
         },
@@ -65,7 +65,7 @@ export function InstagramActions({ className }: InstagramActionsProps) {
       }
     ]);
     
-    setCommentForm({ postUrl: '', comment: '' });
+    setCommentForm({ postId: '', comment: '' });
   };
 
   const handleFollowAction = async () => {
@@ -209,12 +209,12 @@ export function InstagramActions({ className }: InstagramActionsProps) {
           <Card className="p-4">
             <div className="space-y-4">
               <div>
-                <Label htmlFor="postUrl">URL do Post</Label>
+                <Label htmlFor="postId">URL do Post</Label>
                 <Input
-                  id="postUrl"
+                  id="postId"
                   type="url"
-                  value={likeForm.postUrl}
-                  onChange={(e) => setLikeForm({ postUrl: e.target.value })}
+                  value={likeForm.postId}
+                  onChange={(e) => setLikeForm({ postId: e.target.value })}
                   placeholder="https://www.instagram.com/p/..."
                   disabled={isExecuting}
                 />
@@ -224,7 +224,7 @@ export function InstagramActions({ className }: InstagramActionsProps) {
               </div>
               <Button
                 onClick={handleLikeAction}
-                disabled={isExecuting || !likeForm.postUrl || !activeAccount?.isLoggedIn}
+                disabled={isExecuting || !likeForm.postId || !activeAccount?.isLoggedIn}
                 className="w-full"
               >
                 {isExecuting && currentAction?.type === 'like' ? (
@@ -251,8 +251,8 @@ export function InstagramActions({ className }: InstagramActionsProps) {
                 <Input
                   id="commentPostUrl"
                   type="url"
-                  value={commentForm.postUrl}
-                  onChange={(e) => setCommentForm(prev => ({ ...prev, postUrl: e.target.value }))}
+                  value={commentForm.postId}
+                  onChange={(e) => setCommentForm(prev => ({ ...prev, postId: e.target.value }))}
                   placeholder="https://www.instagram.com/p/..."
                   disabled={isExecuting}
                 />
@@ -270,7 +270,7 @@ export function InstagramActions({ className }: InstagramActionsProps) {
               </div>
               <Button
                 onClick={handleCommentAction}
-                disabled={isExecuting || !commentForm.postUrl || !commentForm.comment || !activeAccount?.isLoggedIn}
+                disabled={isExecuting || !commentForm.postId || !commentForm.comment || !activeAccount?.isLoggedIn}
                 className="w-full"
               >
                 {isExecuting && currentAction?.type === 'comment' ? (

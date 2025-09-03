@@ -4,19 +4,21 @@ export type WorkflowActionType =
   | 'likePost'
   | 'followUser'
   | 'unfollowUser'
-  | 'comment'
   | 'monitorMessages'
   | 'monitorPosts'
-  | 'delay';
+  | 'comment'
+  | 'delay'
+  | 'startMessageProcessor'
+  | 'stopMessageProcessor';
 
-// Parâmetros específicos para cada tipo de ação
+// Interfaces mantidas para compatibilidade com código existente
 export interface SendDirectMessageParams {
   username: string;
   message: string;
 }
 
 export interface LikePostParams {
-  postUrl: string;
+  postId: string;
 }
 
 export interface FollowUserParams {
@@ -28,7 +30,7 @@ export interface UnfollowUserParams {
 }
 
 export interface CommentParams {
-  postUrl: string;
+  postId: string;
   comment: string;
 }
 
@@ -45,24 +47,40 @@ export interface MonitorPostsParams {
 }
 
 export interface DelayParams {
-  seconds: number;
+  duration: number; // em milissegundos
 }
-
-// União de todos os tipos de parâmetros
-export type WorkflowActionParams = 
-  | SendDirectMessageParams
-  | LikePostParams
-  | FollowUserParams
-  | UnfollowUserParams
-  | CommentParams
-  | MonitorMessagesParams
-  | MonitorPostsParams
-  | DelayParams;
 
 // Interface para uma ação do workflow
 export interface WorkflowAction {
   type: WorkflowActionType;
-  params: WorkflowActionParams;
+  params: {
+    user?: string;
+    message?: string;
+    postId?: string;
+    postId?: string;
+    username?: string;
+    comment?: string;
+    duration?: number; // em milissegundos
+    includeRequests?: boolean;
+    checkInterval?: number;
+    maxExecutions?: number;
+    maxPostsPerUser?: number;
+    onNewMessage?: (data: any) => void;
+    onNewPost?: (data: any) => void;
+    // Parâmetros para MessageProcessor
+    aiConfig?: {
+      openaiApiKey?: string;
+      googleApiKey?: string;
+      temperature?: number;
+      maxTokens?: number;
+    };
+    processingConfig?: {
+      checkInterval?: number;
+      maxMessagesPerBatch?: number;
+      delayBetweenReplies?: { min: number; max: number };
+      enableHumanization?: boolean;
+    };
+  };
   description?: string;
 }
 
@@ -71,23 +89,21 @@ export interface WorkflowStep {
   id: string;
   name: string;
   actions: WorkflowAction[];
-  condition?: string;
+  condition?: {
+    type: 'success' | 'failure' | 'always';
+    previousStep?: string;
+  };
   retry?: {
     maxAttempts: number;
-    delaySeconds: number;
+    delayMs: number;
   };
 }
 
 // Configurações do workflow
 export interface WorkflowConfig {
-  maxConcurrentSteps?: number;
-  timeoutSeconds?: number;
-  onError?: 'stop' | 'continue' | 'retry';
-  notifications?: {
-    onSuccess?: boolean;
-    onError?: boolean;
-    email?: string;
-  };
+  stopOnError?: boolean;
+  logLevel?: 'debug' | 'info' | 'warn' | 'error';
+  timeout?: number; // timeout global em milissegundos
 }
 
 // Interface principal do workflow

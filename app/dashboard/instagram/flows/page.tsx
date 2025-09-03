@@ -94,10 +94,15 @@ export default function WorkflowsPage() {
     }
   };
 
-  const filteredWorkflows = workflows.filter(workflow =>
-    workflow.workflow.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    workflow.workflow.description?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredWorkflows = workflows.filter(workflow => {
+    if (!workflow?.workflow) return false;
+    
+    const name = workflow.workflow.name || '';
+    const description = workflow.workflow.description || '';
+    
+    return name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+           description.toLowerCase().includes(searchTerm.toLowerCase());
+  });
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('pt-BR', {

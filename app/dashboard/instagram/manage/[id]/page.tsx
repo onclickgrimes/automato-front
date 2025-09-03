@@ -80,7 +80,17 @@ export default function InstagramControlPanel() {
   // Carregar dados iniciais
   useEffect(() => {
     loadInitialData();
-    loadFavoriteWorkflows();
+    
+    const loadWorkflows = async () => {
+      try {
+        const count = await loadFavoriteWorkflows();
+        addLog('info', `${count} workflow(s) favorito(s) carregado(s)`);
+      } catch (err) {
+        addLog('error', 'Erro ao carregar workflows favoritos');
+      }
+    };
+    
+    loadWorkflows();
   }, [accountId]);
 
   // Auto-scroll dos logs
@@ -152,10 +162,10 @@ export default function InstagramControlPanel() {
       
       const workflows = data?.map(record => record.workflow as WorkflowType) || [];
       setFavoriteWorkflows(workflows);
-      addLog('info', `${workflows.length} workflow(s) favorito(s) carregado(s)`);
+      return workflows.length;
     } catch (err) {
       console.error('Erro ao carregar workflows favoritos:', err);
-      addLog('error', 'Erro ao carregar workflows favoritos');
+      throw err;
     } finally {
       setIsLoadingWorkflows(false);
     }
@@ -825,12 +835,13 @@ export default function InstagramControlPanel() {
               </div>
             ) : (
               <div className="space-y-3">
-                {favoriteWorkflows.map((workflow) => {
-                  const status = workflowStatuses[workflow.id] || 'stopped';
+                {favoriteWorkflows.map((workflow, index) => {
+                  const workflowId = workflow?.id || `workflow-${index}`;
+                  const status = workflowStatuses[workflowId] || 'stopped';
                   const isRunning = status === 'running';
                   
                   return (
-                    <div key={workflow.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50 transition-colors">
+                    <div key={workflowId} className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50 transition-colors">
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
                           <Workflow className="w-4 h-4 text-blue-600" />
@@ -848,7 +859,7 @@ export default function InstagramControlPanel() {
                           <Button
                             size="sm"
                             variant="destructive"
-                            onClick={() => stopWorkflow(workflow.id)}
+                            onClick={() => stopWorkflow(workflowId)}
                             className="text-xs"
                           >
                             Parar
@@ -856,7 +867,7 @@ export default function InstagramControlPanel() {
                         ) : (
                           <Button
                             size="sm"
-                            onClick={() => startWorkflow(workflow.id)}
+                            onClick={() => startWorkflow(workflowId)}
                             className="text-xs"
                           >
                             Iniciar
