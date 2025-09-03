@@ -199,7 +199,7 @@ export default function FlowEditor({ initialWorkflow, onSave }: FlowEditorProps)
   const getDefaultParams = (type: WorkflowActionType): any => {
     switch (type) {
       case 'sendDirectMessage':
-        return { username: '', message: '' };
+        return { user: '', message: '' };
       case 'likePost':
         return { postId: '' };
       case 'followUser':

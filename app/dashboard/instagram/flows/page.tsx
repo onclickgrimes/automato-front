@@ -94,6 +94,28 @@ export default function WorkflowsPage() {
     }
   };
 
+  const startWorkflow = async (workflowId: string) => {
+    try {
+      const response = await fetch(`/api/workflows/${workflowId}/start`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Erro ao iniciar workflow');
+      }
+
+      const result = await response.json();
+      alert('Workflow iniciado com sucesso!');
+    } catch (error) {
+      console.error('Erro ao iniciar workflow:', error);
+      alert(`Erro ao iniciar workflow: ${error.message}`);
+    }
+  };
+
   const filteredWorkflows = workflows.filter(workflow => {
     if (!workflow?.workflow) return false;
     
@@ -260,6 +282,16 @@ export default function WorkflowsPage() {
                       </div>
                       
                       <div className="flex items-center gap-2 ml-4">
+                        <Button
+                          variant="default"
+                          size="sm"
+                          onClick={() => startWorkflow(workflowRecord.id)}
+                          className="flex items-center gap-1"
+                        >
+                          <Play className="w-4 h-4" />
+                          Executar
+                        </Button>
+                        
                         <Button
                           variant="outline"
                           size="sm"

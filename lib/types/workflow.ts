@@ -13,7 +13,7 @@ export type WorkflowActionType =
 
 // Interfaces mantidas para compatibilidade com código existente
 export interface SendDirectMessageParams {
-  username: string;
+  user: string;
   message: string;
 }
 

@@ -30,9 +30,12 @@ import {
   Play,
   Pause,
   Search,
-  Filter
+  Filter,
+  Star
 } from 'lucide-react';
 import { AccountManagementModal } from './AccountManagementModal';
+import { createClient } from '@/lib/supabase/client';
+import { useAuth } from '@/lib/hooks/useAuth';
 
 // Tipos locais simplificados
 type InstagramAuthType = 'credentials' | 'cookie';
@@ -64,6 +67,20 @@ interface AddAccountFormData {
   authType: InstagramAuthType;
 }
 
+interface WorkflowRecord {
+  id: string;
+  user_id: string;
+  workflow: {
+    id: string;
+    name: string;
+    description?: string;
+    username: string;
+    steps: any[];
+  };
+  created_at: string;
+  updated_at: string;
+}
+
 const initialFormData: AddAccountFormData = {
   username: '',
   password: '',
@@ -73,8 +90,11 @@ const initialFormData: AddAccountFormData = {
 
 export function InstagramAccountManager() {
   const router = useRouter();
+  const { user } = useAuth();
+  const supabase = createClient();
   const [managingAccount, setManagingAccount] = useState<InstagramAccount | null>(null);
   const [isManageModalOpen, setIsManageModalOpen] = useState(false);
+  const [favoriteWorkflows, setFavoriteWorkflows] = useState<Record<string, WorkflowRecord[]>>({});
   // Estados locais
   const [accounts, setAccounts] = useState<InstagramAccount[]>([]);
   const [filteredAccounts, setFilteredAccounts] = useState<InstagramAccount[]>([]);
@@ -321,6 +341,57 @@ export function InstagramAccountManager() {
      }
    };
 
+  // Função para carregar workflows favoritos para uma conta específica
+  const loadFavoriteWorkflows = async (username: string) => {
+    if (!user) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('workflows')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('favorite', true)
+        .eq('workflow->>username', username)
+        .order('updated_at', { ascending: false })
+        .limit(3);
+
+      if (error) {
+        console.error('Erro ao carregar workflows favoritos:', error);
+        return;
+      }
+
+      setFavoriteWorkflows(prev => ({
+        ...prev,
+        [username]: data || []
+      }));
+    } catch (error) {
+      console.error('Erro ao carregar workflows favoritos:', error);
+    }
+  };
+
+  // Função para iniciar um workflow
+  const startWorkflow = async (workflowId: string) => {
+    try {
+      const response = await fetch(`/api/workflows/${workflowId}/start`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Erro ao iniciar workflow');
+      }
+
+      const result = await response.json();
+      alert('Workflow iniciado com sucesso!');
+    } catch (error) {
+      console.error('Erro ao iniciar workflow:', error);
+      alert(`Erro ao iniciar workflow: ${error.message}`);
+    }
+  };
+
   // Carregar contas ao montar o componente
   useEffect(() => {
     loadAccounts();
@@ -337,6 +408,15 @@ export function InstagramAccountManager() {
   useEffect(() => {
     filterAndSortAccounts();
   }, [accounts, searchTerm, sortOrder, statusFilter]);
+
+  // Carregar workflows favoritos para todas as contas
+  useEffect(() => {
+    if (user && accounts.length > 0) {
+      accounts.forEach(account => {
+        loadFavoriteWorkflows(account.username);
+      });
+    }
+  }, [user, accounts]);
   
   const getActiveAccount = () => {
     if (!Array.isArray(accounts)) return null;
@@ -895,7 +975,7 @@ export function InstagramAccountManager() {
                       <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center text-white text-sm font-medium">
                         {account.username.charAt(0).toUpperCase()}
                       </div>
-                      <div>
+                      <div className="flex-1">
                         <p className="font-medium">@{account.username}</p>
                         <div className="flex items-center gap-2 mt-1">
                           {getAccountStatusBadge(account)}
@@ -907,6 +987,29 @@ export function InstagramAccountManager() {
                             </Badge>
                           )}
                         </div>
+                        
+                        {/* Workflows Favoritos */}
+                        {favoriteWorkflows[account.username] && favoriteWorkflows[account.username].length > 0 && (
+                          <div className="flex items-center gap-1 mt-2">
+                            {favoriteWorkflows[account.username].slice(0, 3).map((workflowRecord) => (
+                              <Button
+                                key={workflowRecord.id}
+                                size="sm"
+                                variant="outline"
+                                onClick={() => startWorkflow(workflowRecord.id)}
+                                className="h-7 px-2 text-xs flex items-center gap-1"
+                                title={`Executar: ${workflowRecord.workflow.name}`}
+                              >
+                                <Play className="w-3 h-3" />
+                                <Star className="w-3 h-3 text-yellow-500 fill-current" />
+                                {workflowRecord.workflow.name.length > 10 
+                                  ? `${workflowRecord.workflow.name.substring(0, 10)}...` 
+                                  : workflowRecord.workflow.name
+                                }
+                              </Button>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </div>
                     

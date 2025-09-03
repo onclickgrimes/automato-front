@@ -81,7 +81,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(workflow.workflow)
+      body: JSON.stringify(workflow)
     });
     if (!backendResponse.ok) {
       const errorData = await backendResponse.json().catch(() => ({ error: 'Backend error' }));
