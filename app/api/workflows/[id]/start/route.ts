@@ -1,13 +1,13 @@
 import { createClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
 
-export async function POST( request: NextRequest, { params }: { params: Promise<{ id: string }>}) {
+export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const supabase = await createClient();
-    
+
     // Verificar se o usuário está autenticado
     const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-    
+
     if (sessionError || !session) {
       return NextResponse.json(
         { error: 'Não autorizado' },
@@ -15,7 +15,7 @@ export async function POST( request: NextRequest, { params }: { params: Promise<
       );
     }
 
-    const workflowId = (await params).id; 
+    const workflowId = (await params).id;
     console.log('workflowId', workflowId);
     const body = await request.json();
     const { account_id } = body;
@@ -57,29 +57,33 @@ export async function POST( request: NextRequest, { params }: { params: Promise<
       );
     }
 
-    // // Verificar se a conta está logada
-    // if (!account.is_logged_in) {
+
+    // const isLogged = await fetch(`${process.env.BACKEND_URL || 'http://localhost:3001'}/api/instagram/status/olavodecarvalho.ia`, {
+    //   method: 'GET',
+    //   headers: {
+    //     'Content-Type': 'application/json',
+    //   }
+    // })
+
+    // const isLoggedData = await isLogged.json();
+    // console.log('isLoggedData', isLoggedData);
+    // if (!isLoggedData.is_logged_in) {
     //   return NextResponse.json(
     //     { error: 'A conta do Instagram deve estar logada para executar workflows' },
     //     { status: 400 }
     //   );
     // }
-    console.log('workflow', JSON.stringify(workflow));
+
+
+    // console.log('workflow', JSON.stringify(workflow));
     // Fazer chamada para o backend real
     const backendResponse = await fetch(`${process.env.BACKEND_URL || 'http://localhost:8000'}/api/instagram/workflow/execute`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        workflow: {
-          id: workflowId,
-          workflow: JSON.stringify(workflow.workflow),
-          account_id: account_id
-        }
-      })
+      body: JSON.stringify(workflow)
     });
-    console.log('backendResponse', backendResponse);
     if (!backendResponse.ok) {
       const errorData = await backendResponse.json().catch(() => ({ error: 'Backend error' }));
       return NextResponse.json(
