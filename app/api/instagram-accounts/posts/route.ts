@@ -65,8 +65,8 @@ function transformPostForDatabase(post: any, userId: string): CreateInstagramPos
     likes: post.likes || 0,
     comments: post.comments || 0,
     post_date: post.post_date || post.date || null,
-    liked_by_users: post.likedByUsers || [],
-    followed_likers: post.followedLikers || false
+    liked_by_users: post.liked_by_users || post.likedByUsers || [],
+    followed_likers: post.followed_likers || post.followedLikers || false
   };
 }
 
