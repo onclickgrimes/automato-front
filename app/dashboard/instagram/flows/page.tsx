@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { 
   Plus, 
   Search, 
@@ -19,6 +20,7 @@ import {
 import { useAuth } from '@/lib/hooks/useAuth';
 import { createClient } from '@/lib/supabase/client';
 import { Workflow as WorkflowType } from '@/lib/types/workflow';
+import { InstagramAccount } from '@/lib/types/instagram-accounts';
 
 interface WorkflowRecord {
   id: string;
@@ -33,9 +35,11 @@ export default function WorkflowsPage() {
   const { user, loading: authLoading } = useAuth();
   const supabase = createClient();
   const [workflows, setWorkflows] = useState<WorkflowRecord[]>([]);
+  const [instagramAccounts, setInstagramAccounts] = useState<InstagramAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [selectedAccountId, setSelectedAccountId] = useState<string>('');
 
   useEffect(() => {
     if (authLoading) {
@@ -48,7 +52,27 @@ export default function WorkflowsPage() {
     }
 
     loadWorkflows();
+    loadInstagramAccounts();
   }, [user, authLoading, router]);
+
+  const loadInstagramAccounts = async () => {
+    try {
+      const response = await fetch('/api/instagram-accounts');
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Erro ao carregar contas');
+      }
+
+      setInstagramAccounts(result.data || []);
+      // Selecionar a primeira conta por padrão
+      if (result.data && result.data.length > 0) {
+        setSelectedAccountId(result.data[0].id);
+      }
+    } catch (error) {
+      console.error('Erro ao carregar contas do Instagram:', error);
+    }
+  };
 
   const loadWorkflows = async () => {
     try {
@@ -95,12 +119,20 @@ export default function WorkflowsPage() {
   };
 
   const startWorkflow = async (workflowId: string) => {
+    if (!selectedAccountId) {
+      alert('Por favor, selecione uma conta do Instagram primeiro.');
+      return;
+    }
+
     try {
       const response = await fetch(`/api/workflows/${workflowId}/start`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
+        body: JSON.stringify({
+          account_id: selectedAccountId
+        }),
       });
 
       if (!response.ok) {
@@ -185,17 +217,38 @@ export default function WorkflowsPage() {
           </div>
         </div>
 
-        {/* Search */}
+        {/* Search and Account Selection */}
         <Card className="mb-6">
           <CardContent className="p-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <Input
-                placeholder="Buscar workflows..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
+            <div className="flex gap-4">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <Input
+                  placeholder="Buscar workflows..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+              <div className="w-64">
+                <Select value={selectedAccountId} onValueChange={setSelectedAccountId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione uma conta" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {instagramAccounts.map((account) => (
+                      <SelectItem key={account.id} value={account.id}>
+                        @{account.username}
+                        {account.is_logged_in && (
+                          <Badge variant="secondary" className="ml-2 text-xs">
+                            Online
+                          </Badge>
+                        )}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </CardContent>
         </Card>
