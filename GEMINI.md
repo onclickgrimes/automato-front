@@ -264,3 +264,150 @@ O JSON exportado é totalmente compatível com o `WorkflowProcessor` do backend,
 - Campos opcionais apenas quando configurados
 - Validação de dados antes da exportação
 - Formato esperado pelos processadores de workflow atualizado
+
+## Sistema de Posts do Instagram
+
+### Implementação Completa
+
+Sistema para receber e armazenar posts do Instagram coletados pelo backend.
+
+### Estrutura do Sistema
+
+#### 1. Migração do Banco (`migrations/create_instagram_posts_table.sql`)
+
+Tabela `instagram_posts` com:
+- **Campos principais**: `id`, `user_id`, `url`, `post_id`, `username`
+- **Métricas**: `likes`, `comments`, `post_date`
+- **Funcionalidades**: `liked_by_users` (jsonb), `followed_likers` (boolean)
+- **Auditoria**: `created_at`, `updated_at`
+- **Segurança**: RLS habilitado, políticas por usuário
+- **Performance**: Índices otimizados
+- **Integridade**: Constraint única por `post_id` + `user_id`
+
+#### 2. Tipos TypeScript (`lib/types/instagram-posts.ts`)
+
+- `InstagramPost`: Interface completa da tabela
+- `InstagramPostFromBackend`: Formato recebido do backend
+- `InstagramPostsPayload`: Payload completo com username e posts
+- `CreateInstagramPostData`: Dados para inserção
+- `UpdateInstagramPostData`: Dados para atualização
+- `InstagramPostFilters`: Filtros de busca
+- `InstagramPostResponse`: Resposta padrão das operações
+- `InstagramPostStats`: Estatísticas dos posts
+
+#### 3. API Endpoint (`/api/instagram-accounts/posts`)
+
+**POST**: Receber posts do backend
+- Validação completa do payload
+- Extração automática de `post_id` da URL
+- Upsert para evitar duplicatas
+- Processamento em lote com tratamento de erros
+- Resposta detalhada com sucessos e falhas
+
+**GET**: Buscar posts do usuário
+- Filtros por username, followed_likers
+- Paginação com limit/offset
+- Ordenação por data de criação
+- Contagem de resultados
+
+### Payload do Backend
+
+```javascript
+const payload = {
+  username: username,
+  posts: posts.map(post => ({
+    url: post.url,
+    post_id: post.post_id || post.url.match(/\/(p|reel)\/([^/]+)\//)?.[2] || post.url,
+    username: post.username,
+    likes: post.likes || 0,
+    comments: post.comments || 0,
+    post_date: post.post_date || post.date,
+    liked_by_users: post.likedByUsers || [],
+    followed_likers: post.followedLikers || false
+  }))
+};
+```
+
+### Funcionalidades Implementadas
+
+1. **Recepção de Posts**:
+   - Endpoint POST para receber dados do backend
+   - Validação rigorosa de todos os campos
+   - Transformação automática de formatos
+   - Extração inteligente de post_id da URL
+
+2. **Armazenamento Seguro**:
+   - Upsert para evitar duplicatas
+   - RLS para isolamento por usuário
+   - Índices para performance otimizada
+   - Triggers para auditoria automática
+
+3. **Consulta de Posts**:
+   - Endpoint GET com filtros avançados
+   - Paginação eficiente
+   - Busca por username e status
+   - Estatísticas e contadores
+
+4. **Tratamento de Erros**:
+   - Validação detalhada com mensagens específicas
+   - Processamento resiliente em lote
+   - Logs detalhados para debugging
+   - Respostas estruturadas com sucessos e falhas
+
+### Segurança e Performance
+
+- **RLS**: Usuários só acessam seus próprios posts
+- **Validação**: Todos os campos são validados antes da inserção
+- **Índices**: Otimizados para consultas frequentes
+- **Upsert**: Evita duplicatas e conflitos
+- **Paginação**: Controle de carga em consultas grandes
+
+### Integração com Backend
+
+O sistema está preparado para receber dados do backend Node.js/Knex, com:
+- Compatibilidade total com o schema do backend
+- Mapeamento automático de campos alternativos
+- Tratamento de dados opcionais e nulos
+- Resposta estruturada para feedback ao backend
+
+### Autenticação via API Key
+
+Para permitir que o backend acesse as rotas sem autenticação de usuário:
+
+#### Configuração
+1. Adicione `INTERNAL_API_KEY` no `.env.local`:
+```bash
+INTERNAL_API_KEY=your_secure_api_key_here_change_this
+```
+
+#### Uso no Backend
+**POST** - Enviar posts:
+```javascript
+const response = await fetch('http://localhost:3000/api/instagram-accounts/posts', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'x-api-key': process.env.INTERNAL_API_KEY
+  },
+  body: JSON.stringify({
+    user_id: 'uuid-do-usuario',
+    username: 'nome_usuario',
+    posts: [...]
+  })
+});
+```
+
+**GET** - Buscar posts:
+```javascript
+const response = await fetch('http://localhost:3000/api/instagram-accounts/posts?user_id=uuid-do-usuario&username=nome_usuario', {
+  headers: {
+    'x-api-key': process.env.INTERNAL_API_KEY
+  }
+});
+```
+
+#### Segurança
+- API key deve ser mantida em segredo
+- Validação rigorosa do `user_id`
+- Fallback para autenticação normal de usuários
+- Logs de acesso para auditoria
