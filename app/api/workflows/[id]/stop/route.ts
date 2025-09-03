@@ -1,33 +1,34 @@
 import { createClient } from '@/lib/supabase/server';
+import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
 
-export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }>}) {
   try {
-    const supabase = await createClient();
-    
-    // Verificar se o usuário está autenticado
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-    
-    if (sessionError || !session) {
+    const supabase = createClient();
+    const supabaseClient = await supabase;
+    const { data: { session }, error: authError } = await supabaseClient.auth.getSession();
+
+    if (authError || !session) {  
       return NextResponse.json(
-        { error: 'Não autorizado' },
+        { success: false, error: 'Unauthorized' },
         { status: 401 }
       );
     }
 
-    const workflowId = params.id;
-    const body = await request.json();
-    const { account_id } = body;
+    const { id: workflowId } = await params;
+    const { account_id } = await request.json();
 
-    if (!account_id) {
+    if (!workflowId || !account_id) {
       return NextResponse.json(
-        { error: 'ID da conta é obrigatório' },
+        { success: false, error: 'Workflow ID and Account ID are required' },
         { status: 400 }
       );
     }
 
-    // Verificar se o workflow existe e pertence ao usuário
-    const { data: workflow, error: workflowError } = await supabase
+    // Verificar se o workflow pertence ao usuário
+    const { data: workflow, error: workflowError } = await supabaseClient
       .from('workflows')
       .select('*')
       .eq('id', workflowId)
@@ -36,95 +37,83 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
 
     if (workflowError || !workflow) {
       return NextResponse.json(
-        { error: 'Workflow não encontrado' },
+        { success: false, error: 'Workflow not found' },
         { status: 404 }
       );
     }
 
-    // Verificar se a conta do Instagram pertence ao usuário
-    const { data: account, error: accountError } = await supabase
+    // Verificar se a conta pertence ao usuário
+    const { data: account, error: accountError } = await supabaseClient
       .from('instagram_accounts')
       .select('*')
       .eq('id', account_id)
-      .eq('user_id', session.user.id)
+      .eq('user_id', session.user.id) 
       .single();
 
     if (accountError || !account) {
       return NextResponse.json(
-        { error: 'Conta do Instagram não encontrada' },
+        { success: false, error: 'Instagram account not found' },
         { status: 404 }
       );
     }
 
-    // Buscar execuções em andamento para este workflow e conta
-    const { data: runningExecutions, error: executionsError } = await supabase
+    // Fazer chamada para o backend real para parar o workflow
+    const backendResponse = await fetch(`${process.env.BACKEND_URL || 'http://localhost:8000'}/api/instagram/workflow/stop/${workflowId}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        account_id: account_id
+      })
+    });
+
+    if (!backendResponse.ok) {
+      const errorData = await backendResponse.json().catch(() => ({ error: 'Backend error' }));
+      return NextResponse.json(
+        { success: false, error: errorData.error || 'Failed to stop workflow' },
+        { status: backendResponse.status }
+      );
+    }
+
+    const result = await backendResponse.json();
+
+    // Buscar execuções em andamento para atualizar no banco local
+    const { data: runningExecutions, error: executionsError } = await supabaseClient
       .from('execution_logs')
       .select('*')
+      .eq('routine_id', workflowId)
       .eq('social_account_id', account_id)
-      .eq('status', 'running')
-      .contains('result', { workflow_id: workflowId });
+      .eq('status', 'running');
 
-    if (executionsError) {
-      console.error('Erro ao buscar execuções:', executionsError);
-      return NextResponse.json(
-        { error: 'Erro ao verificar execuções em andamento' },
-        { status: 500 }
-      );
-    }
-
-    if (!runningExecutions || runningExecutions.length === 0) {
-      return NextResponse.json(
-        { error: 'Nenhuma execução em andamento encontrada para este workflow' },
-        { status: 404 }
-      );
-    }
-
-    // Parar todas as execuções em andamento
-    const stoppedExecutions = [];
-    for (const execution of runningExecutions) {
-      const { data: stoppedExecution, error: stopError } = await supabase
+    if (!executionsError && runningExecutions && runningExecutions.length > 0) {
+      // Atualizar status das execuções para 'stopped'
+      const executionIds = runningExecutions.map(exec => exec.id);
+      await supabaseClient
         .from('execution_logs')
         .update({
           status: 'stopped',
           completed_at: new Date().toISOString(),
           result: {
-            ...execution.result,
+            ...runningExecutions[0].result,
             stopped_at: new Date().toISOString(),
             stopped_by: 'manual',
-            reason: 'Parado pelo usuário'
+            ...result
           }
         })
-        .eq('id', execution.id)
-        .select()
-        .single();
-
-      if (stopError) {
-        console.error('Erro ao parar execução:', stopError);
-      } else {
-        stoppedExecutions.push(stoppedExecution);
-      }
+        .in('id', executionIds);
     }
-
-    // TODO: Aqui você pode implementar a lógica real para parar a execução do workflow
-    // Por exemplo, cancelar processos em andamento, limpar recursos, etc.
-    console.log(`Parando workflow ${workflowId} para conta ${account_id}`);
-    console.log('Execuções paradas:', stoppedExecutions.length);
 
     return NextResponse.json({
       success: true,
-      data: {
-        workflow_id: workflowId,
-        account_id: account_id,
-        stopped_executions: stoppedExecutions.length,
-        status: 'stopped',
-        message: 'Workflow parado com sucesso'
-      }
+      message: 'Workflow stopped successfully',
+      ...result
     });
 
   } catch (error) {
-    console.error('Erro na API de parar workflow:', error);
+    console.error('Error stopping workflow:', error);
     return NextResponse.json(
-      { error: 'Erro interno do servidor' },
+      { success: false, error: 'Internal server error' },
       { status: 500 }
     );
   }

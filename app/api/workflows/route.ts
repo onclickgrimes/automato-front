@@ -17,26 +17,52 @@ export async function GET(request: NextRequest) {
 
     console.log('Usuário autenticado:', session.user.id);
 
-    // Tentar buscar workflows
-    const { data, error } = await supabase
+    // Buscar workflows locais
+    const { data: localWorkflows, error } = await supabase
       .from('workflows')
       .select('*')
       .eq('user_id', session.user.id)
       .order('updated_at', { ascending: false });
 
-    console.log('Resultado da consulta workflows:', { data, error });
-
     if (error) {
-      return NextResponse.json(
-        { error: 'Erro na consulta', details: error.message, code: error.code },
-        { status: 500 }
-      );
+      console.error('Erro ao buscar workflows locais:', error);
     }
+
+    // Tentar buscar workflows do backend também
+    let backendWorkflows = [];
+    try {
+      const backendResponse = await fetch(`${process.env.BACKEND_URL || 'http://localhost:8000'}/api/instagram/workflow/list`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}` // Se o backend precisar de autenticação
+        }
+      });
+
+      if (backendResponse.ok) {
+        const backendResult = await backendResponse.json();
+        backendWorkflows = backendResult.workflows || backendResult.data || [];
+      }
+    } catch (backendError) {
+      console.error('Erro ao buscar workflows do backend:', backendError);
+      // Continua com workflows locais se o backend falhar
+    }
+
+    // Combinar dados locais com informações do backend
+    const combinedWorkflows = (localWorkflows || []).map(localWorkflow => {
+      const backendWorkflow = backendWorkflows.find(bw => bw.id === localWorkflow.id);
+      return {
+        ...localWorkflow,
+        backend_status: backendWorkflow?.status || 'unknown',
+        backend_info: backendWorkflow || null
+      };
+    });
 
     return NextResponse.json({
       success: true,
-      data: data || [],
-      count: data?.length || 0
+      data: combinedWorkflows,
+      count: combinedWorkflows.length,
+      backend_available: backendWorkflows.length > 0
     });
   } catch (error) {
     console.error('Erro na API workflows:', error);
