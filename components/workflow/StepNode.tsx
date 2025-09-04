@@ -74,7 +74,7 @@ export default function StepNode({ data, selected }: NodeProps<StepNodeData>) {
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <CardTitle className="text-sm font-semibold text-gray-800 truncate">
-              {step.name || `Step ${step.id}`}
+              {step.name}
             </CardTitle>
             <div className="flex items-center gap-1">
               <Button

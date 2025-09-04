@@ -286,9 +286,11 @@ export default function FlowEditor({ initialWorkflow, onSave }: FlowEditorProps)
         handleAddActionToStep(targetNode.id, actionType);
       } else {
         // Criar novo step com a ação
+        const timestamp = Date.now();
+        const actionName = getActionName(actionType);
         const newStep: WorkflowStep = {
-          id: `step-${Date.now()}`,
-          name: `Step ${safeWorkflow.steps.length + 1}`,
+          id: `step-${timestamp}`,
+          name: `${actionName} - ${timestamp}`,
           actions: [{
             type: actionType,
             params: getDefaultParams(actionType),
@@ -304,6 +306,33 @@ export default function FlowEditor({ initialWorkflow, onSave }: FlowEditorProps)
     },
     [reactFlowInstance, nodes, safeWorkflow.steps]
   );
+
+  const getActionName = (type: WorkflowActionType): string => {
+    switch (type) {
+      case 'sendDirectMessage':
+        return 'Enviar DM';
+      case 'likePost':
+        return 'Curtir Post';
+      case 'followUser':
+        return 'Seguir Usuário';
+      case 'unfollowUser':
+        return 'Deixar de Seguir';
+      case 'comment':
+        return 'Comentar';
+      case 'monitorMessages':
+        return 'Monitorar Mensagens';
+      case 'monitorPosts':
+        return 'Monitorar Posts';
+      case 'delay':
+        return 'Aguardar';
+      case 'startMessageProcessor':
+        return 'Iniciar Processador';
+      case 'stopMessageProcessor':
+        return 'Parar Processador';
+      default:
+        return 'Ação';
+    }
+  };
 
   const getDefaultParams = (type: WorkflowActionType): any => {
     switch (type) {
@@ -332,9 +361,10 @@ export default function FlowEditor({ initialWorkflow, onSave }: FlowEditorProps)
   };
 
   const handleAddStep = () => {
+    const timestamp = Date.now();
     const newStep: WorkflowStep = {
-      id: `step-${Date.now()}`,
-      name: `Step ${safeWorkflow.steps.length + 1}`,
+      id: `step-${timestamp}`,
+      name: `Novo Step - ${timestamp}`,
       actions: []
     };
     
