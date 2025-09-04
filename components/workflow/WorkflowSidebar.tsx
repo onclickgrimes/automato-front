@@ -201,16 +201,73 @@ export default function WorkflowSidebar({
       
       case 'delay':
         const delayParams = action.params as any;
+        
+        // Converter milissegundos para unidade mais amigável
+        const durationMs = delayParams.duration || 60000;
+        let displayValue: number;
+        let currentUnit: string;
+        
+        if (durationMs >= 3600000) { // >= 1 hora
+          displayValue = Math.round(durationMs / 3600000 * 100) / 100;
+          currentUnit = 'hours';
+        } else if (durationMs >= 60000) { // >= 1 minuto
+          displayValue = Math.round(durationMs / 60000 * 100) / 100;
+          currentUnit = 'minutes';
+        } else { // segundos
+          displayValue = Math.round(durationMs / 1000 * 100) / 100;
+          currentUnit = 'seconds';
+        }
+        
+        const handleDurationChange = (value: string, unit: string) => {
+          const numValue = parseFloat(value) || 0;
+          let newDurationMs: number;
+          
+          switch (unit) {
+            case 'hours':
+              newDurationMs = numValue * 3600000;
+              break;
+            case 'minutes':
+              newDurationMs = numValue * 60000;
+              break;
+            case 'seconds':
+            default:
+              newDurationMs = numValue * 1000;
+              break;
+          }
+          
+          updateParams({ duration: Math.max(1000, newDurationMs) }); // Mínimo 1 segundo
+        };
+        
         return (
-          <div>
-            <Label className="text-xs">Duração (ms)</Label>
-            <Input
-              type="number"
-              value={delayParams.duration || 60000}
-              onChange={(e) => updateParams({ duration: parseInt(e.target.value) || 60000 })}
-              className="h-8 text-xs"
-              min="1"
-            />
+          <div className="space-y-2">
+            <Label className="text-xs">Duração</Label>
+            <div className="flex gap-2">
+              <Input
+                type="number"
+                value={displayValue}
+                onChange={(e) => handleDurationChange(e.target.value, currentUnit)}
+                className="h-8 text-xs flex-1"
+                min="0.1"
+                step="0.1"
+                placeholder="0"
+              />
+              <Select
+                value={currentUnit}
+                onValueChange={(unit) => handleDurationChange(displayValue.toString(), unit)}
+              >
+                <SelectTrigger className="h-8 w-24 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="seconds">seg</SelectItem>
+                  <SelectItem value="minutes">min</SelectItem>
+                  <SelectItem value="hours">hrs</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="text-xs text-gray-500">
+              = {Math.round(durationMs).toLocaleString()} ms
+            </div>
           </div>
         );
       
