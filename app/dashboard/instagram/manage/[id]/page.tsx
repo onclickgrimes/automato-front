@@ -34,13 +34,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { createClient } from '@/lib/supabase/client';
-
-interface LogEntry {
-  id: string;
-  timestamp: string;
-  level: 'info' | 'success' | 'warning' | 'error';
-  message: string;
-}
+import { useSSELogs, LogEntry } from '@/lib/hooks/useSSELogs';
 
 const BACKEND_BASE_URL = 'https://able-viable-elephant.ngrok-free.app';
 
@@ -74,8 +68,11 @@ export default function InstagramControlPanel() {
   const [workflowStatuses, setWorkflowStatuses] = useState<Record<string, 'running' | 'stopped'>>({});
   const [isLoadingWorkflows, setIsLoadingWorkflows] = useState(false);
   
-  // Logs
-  const [logs, setLogs] = useState<LogEntry[]>([]);
+  // SSE Logs
+  const { logs, isConnected: isSSEConnected, error: sseError, clearLogs } = useSSELogs(
+    currentAccount?.username || '',
+    !!currentAccount?.username
+  );
 
   // Carregar dados iniciais
   useEffect(() => {
@@ -83,10 +80,9 @@ export default function InstagramControlPanel() {
     
     const loadWorkflows = async () => {
       try {
-        const count = await loadFavoriteWorkflows();
-        addLog('info', `${count} workflow(s) favorito(s) carregado(s)`);
+        await loadFavoriteWorkflows();
       } catch (err) {
-        addLog('error', 'Erro ao carregar workflows favoritos');
+        console.error('Erro ao carregar workflows favoritos:', err);
       }
     };
     
@@ -98,20 +94,11 @@ export default function InstagramControlPanel() {
     logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [logs]);
 
-  const addLog = (level: LogEntry['level'], message: string) => {
-    const newLog: LogEntry = {
-      id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      timestamp: new Date().toLocaleTimeString(),
-      level,
-      message
-    };
-    setLogs(prev => [...prev, newLog]);
-  };
+
 
   const loadInitialData = async () => {
     try {
       setIsLoading(true);
-      addLog('info', 'Carregando dados iniciais...');
       
       // Carregar todas as contas
       const accountsResponse = await fetch('/api/instagram-accounts');
@@ -128,7 +115,6 @@ export default function InstagramControlPanel() {
         if (current) {
           setCurrentAccount(current);
           setEditedAccount(current);
-          addLog('success', `Conta @${current.username} carregada com sucesso`);
           
           // Verificar status inicial
           await checkInstanceStatus(current.username);
@@ -139,7 +125,7 @@ export default function InstagramControlPanel() {
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Erro desconhecido';
       setError(errorMsg);
-      addLog('error', `Erro ao carregar dados: ${errorMsg}`);
+      console.error('Erro ao carregar dados:', errorMsg);
     } finally {
       setIsLoading(false);
     }
@@ -174,7 +160,6 @@ export default function InstagramControlPanel() {
   const checkInstanceStatus = async (username: string) => {
     try {
       setIsCheckingStatus(true);
-      addLog('info', `Verificando status da instância @${username}...`);
       
       const response = await fetch(`${BACKEND_BASE_URL}/api/instagram/status/${username}`, {
         method: 'GET',
@@ -191,18 +176,14 @@ export default function InstagramControlPanel() {
       const isActive = result.success === true && result.status === 'active';
       
       setInstanceStatus(isActive ? 'active' : 'inactive');
-      addLog(isActive ? 'success' : 'warning', 
-        `Status: ${isActive ? 'Instância ativa' : 'Instância inativa'}`);
       
       return isActive;
     } catch (err) {
       if (err instanceof TypeError && err.message.includes('fetch')) {
         setInstanceStatus('unknown');
-        addLog('error', 'Backend offline - não foi possível verificar status');
       } else {
         console.error(`Erro ao verificar status:`, err);
         setInstanceStatus('unknown');
-        addLog('error', `Erro ao verificar status: ${err instanceof Error ? err.message : 'Erro desconhecido'}`);
       }
       return false;
     } finally {
@@ -215,7 +196,6 @@ export default function InstagramControlPanel() {
     
     try {
       setIsStarting(true);
-      addLog('info', `Iniciando instância @${currentAccount.username}...`);
       
       const body = {
         accountId: currentAccount.id,
@@ -243,17 +223,11 @@ export default function InstagramControlPanel() {
       
       if (result.status === 'ok' || result.success) {
         setInstanceStatus('active');
-        addLog('success', 'Instância iniciada com sucesso!');
       } else {
         throw new Error(result.message || 'Erro ao iniciar instância');
       }
     } catch (err) {
-      if (err instanceof TypeError && err.message.includes('fetch')) {
-        addLog('error', 'Backend offline - não foi possível iniciar instância');
-      } else {
-        console.error('Erro ao iniciar instância:', err);
-        addLog('error', `Erro ao iniciar: ${err instanceof Error ? err.message : 'Erro desconhecido'}`);
-      }
+      console.error('Erro ao iniciar instância:', err);
     } finally {
       setIsStarting(false);
     }
@@ -264,7 +238,6 @@ export default function InstagramControlPanel() {
     
     try {
       setIsStopping(true);
-      addLog('info', `Parando instância @${currentAccount.username}...`);
       
       const response = await fetch(`${BACKEND_BASE_URL}/api/instagram/parar/${currentAccount.username}`, {
         method: 'POST',
@@ -282,17 +255,11 @@ export default function InstagramControlPanel() {
       
       if (result.status === 'ok' || result.success) {
         setInstanceStatus('inactive');
-        addLog('success', 'Instância parada com sucesso!');
       } else {
         throw new Error(result.message || 'Erro ao parar instância');
       }
     } catch (err) {
-      if (err instanceof TypeError && err.message.includes('fetch')) {
-        addLog('error', 'Backend offline - não foi possível parar instância');
-      } else {
-        console.error('Erro ao parar instância:', err);
-        addLog('error', `Erro ao parar: ${err instanceof Error ? err.message : 'Erro desconhecido'}`);
-      }
+      console.error('Erro ao parar instância:', err);
     } finally {
       setIsStopping(false);
     }
@@ -301,7 +268,6 @@ export default function InstagramControlPanel() {
   const checkActiveInstances = async () => {
     try {
       setIsCheckingActive(true);
-      addLog('info', 'Verificando instâncias ativas...');
       
       const response = await fetch(`${BACKEND_BASE_URL}/api/instagram/ativos`, {
         method: 'GET',
@@ -316,21 +282,10 @@ export default function InstagramControlPanel() {
 
       const result = await response.json();
       
-      if (result.success && Array.isArray(result.data)) {
-        const activeCount = result.data.length;
-        const activeUsernames = result.data.map((item: any) => item.username || item).join(', ');
-        
-        addLog('success', `${activeCount} instância(s) ativa(s): ${activeUsernames || 'Nenhuma'}`);
-      } else {
-        addLog('warning', 'Nenhuma instância ativa encontrada');
-      }
+      // Apenas processa os dados sem adicionar logs manuais
+      // Os logs virão automaticamente via SSE do backend
     } catch (err) {
-      if (err instanceof TypeError && err.message.includes('fetch')) {
-        addLog('error', 'Backend offline - não foi possível verificar instâncias ativas');
-      } else {
-        console.error('Erro ao verificar instâncias ativas:', err);
-        addLog('error', `Erro ao verificar ativos: ${err instanceof Error ? err.message : 'Erro desconhecido'}`);
-      }
+      console.error('Erro ao verificar instâncias ativas:', err);
     } finally {
       setIsCheckingActive(false);
     }
@@ -346,8 +301,6 @@ export default function InstagramControlPanel() {
     if (!currentAccount || !editedAccount) return;
     
     try {
-      addLog('info', 'Salvando alterações da conta...');
-      
       const response = await fetch(`/api/instagram-accounts/${currentAccount.id}`, {
         method: 'PUT',
         headers: {
@@ -364,13 +317,11 @@ export default function InstagramControlPanel() {
       if (result.success) {
         setCurrentAccount(result.data);
         setIsEditingAccount(false);
-        addLog('success', 'Conta atualizada com sucesso!');
       } else {
         throw new Error(result.error || 'Erro ao salvar');
       }
     } catch (err) {
       console.error('Erro ao salvar conta:', err);
-      addLog('error', `Erro ao salvar: ${err instanceof Error ? err.message : 'Erro desconhecido'}`);
     }
   };
 
@@ -383,7 +334,6 @@ export default function InstagramControlPanel() {
 
   const startWorkflow = async (workflowId: string) => {
     try {
-      addLog('info', `Iniciando workflow ${workflowId}...`);
       setWorkflowStatuses(prev => ({ ...prev, [workflowId]: 'running' }));
       
       const response = await fetch(`/api/workflows/${workflowId}/start`, {
@@ -402,18 +352,14 @@ export default function InstagramControlPanel() {
 
       const result = await response.json();
       console.log('Workflow iniciado com sucesso:', result);
-      
-      addLog('success', `Workflow "${favoriteWorkflows.find(w => w.id === workflowId)?.name}" iniciado com sucesso!`);
     } catch (err) {
       console.error('Erro ao iniciar workflow:', err);
-      addLog('error', `Erro ao iniciar workflow: ${err instanceof Error ? err.message : 'Erro desconhecido'}`);
       setWorkflowStatuses(prev => ({ ...prev, [workflowId]: 'stopped' }));
     }
   };
 
   const stopWorkflow = async (workflowId: string) => {
     try {
-      addLog('info', `Parando workflow ${workflowId}...`);
       setWorkflowStatuses(prev => ({ ...prev, [workflowId]: 'stopped' }));
       
       const response = await fetch(`/api/workflows/${workflowId}/stop`, {
@@ -432,11 +378,8 @@ export default function InstagramControlPanel() {
 
       const result = await response.json();
       console.log('Workflow parado com sucesso:', result);
-      
-      addLog('success', `Workflow "${favoriteWorkflows.find(w => w.id === workflowId)?.name}" parado com sucesso!`);
     } catch (err) {
       console.error('Erro ao parar workflow:', err);
-      addLog('error', `Erro ao parar workflow: ${err instanceof Error ? err.message : 'Erro desconhecido'}`);
       setWorkflowStatuses(prev => ({ ...prev, [workflowId]: 'running' }));
     }
   };
@@ -779,36 +722,58 @@ export default function InstagramControlPanel() {
         {/* Logs em Tempo Real */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <Terminal className="w-5 h-5" />
-              <span>Logs em Tempo Real</span>
-              <Badge variant="outline">{logs.length}</Badge>
+            <CardTitle className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <Terminal className="w-5 h-5" />
+                <span>Logs em Tempo Real</span>
+                <Badge variant="outline">{logs.length}</Badge>
+                <Badge variant={isSSEConnected ? 'default' : 'destructive'} className="text-xs">
+                  {isSSEConnected ? 'Conectado' : 'Desconectado'}
+                </Badge>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={clearLogs}
+                className="text-xs"
+              >
+                Limpar
+              </Button>
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="bg-gray-900 rounded-lg p-4 h-80 overflow-y-auto font-mono text-sm">
-              {logs.length === 0 ? (
-                <div className="text-gray-500 text-center py-8">
-                  Nenhum log ainda. As ações aparecerão aqui...
-                </div>
-              ) : (
-                <div className="space-y-1">
-                  {logs.map((log) => (
-                    <div key={log.id} className="flex items-start space-x-2">
-                      <span className="text-gray-500 text-xs min-w-[80px]">
-                        [{log.timestamp}]
-                      </span>
-                      <span className={`text-xs uppercase min-w-[60px] ${getLogColor(log.level)}`}>
-                        {log.level}
-                      </span>
-                      <span className="text-gray-300 flex-1">
-                        {log.message}
-                      </span>
-                    </div>
-                  ))}
-                  <div ref={logsEndRef} />
-                </div>
+            <div className="space-y-2">
+              {sseError && (
+                <Alert>
+                  <AlertDescription className="text-sm">
+                    Erro na conexão SSE: {sseError}
+                  </AlertDescription>
+                </Alert>
               )}
+              <div className="bg-gray-900 rounded-lg p-4 h-80 overflow-y-auto font-mono text-sm">
+                {logs.length === 0 ? (
+                  <div className="text-gray-500 text-center py-8">
+                    Nenhum log ainda. As ações aparecerão aqui em tempo real via SSE...
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    {logs.map((log) => (
+                      <div key={log.id} className="flex items-start space-x-2">
+                        <span className="text-gray-500 text-xs min-w-[80px]">
+                          [{log.timestamp}]
+                        </span>
+                        <span className={`text-xs uppercase min-w-[60px] ${getLogColor(log.level)}`}>
+                          {log.level}
+                        </span>
+                        <span className="text-gray-300 flex-1">
+                          {log.message}
+                        </span>
+                      </div>
+                    ))}
+                    <div ref={logsEndRef} />
+                  </div>
+                )}
+              </div>
             </div>
           </CardContent>
         </Card>
