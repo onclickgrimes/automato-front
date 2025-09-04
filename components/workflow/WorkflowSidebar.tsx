@@ -102,7 +102,13 @@ export default function WorkflowSidebar({
       case 'monitorMessages':
         return { keywords: [] };
       case 'monitorPosts':
-        return { hashtags: [] };
+        return { 
+          hashtags: [], 
+          usernames: [],
+          checkInterval: 30000, // 30 segundos
+          maxExecutions: 10,
+          maxPostsPerUser: 5
+        };
       case 'delay':
         return { duration: 60000 }; // em milissegundos
       case 'startMessageProcessor':
@@ -194,6 +200,75 @@ export default function WorkflowSidebar({
                 onChange={(e) => updateParams({ comment: e.target.value })}
                 placeholder="Seu comentário..."
                 className="h-16 text-xs resize-none"
+              />
+            </div>
+          </div>
+        );
+      
+      case 'monitorPosts':
+        const monitorPostsParams = action.params as any;
+        return (
+          <div className="space-y-2">
+            <div>
+              <Label className="text-xs">Hashtags</Label>
+              <Input
+                value={(monitorPostsParams.hashtags || []).join(', ')}
+                onChange={(e) => updateParams({ hashtags: e.target.value.split(',').map(tag => tag.trim()).filter(tag => tag) })}
+                placeholder="#tag1, #tag2, #tag3"
+                className="h-8 text-xs"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Usuários</Label>
+              <Input
+                value={(monitorPostsParams.usernames || []).join(', ')}
+                onChange={(e) => updateParams({ usernames: e.target.value.split(',').map(user => user.trim()).filter(user => user) })}
+                placeholder="@usuario1, @usuario2"
+                className="h-8 text-xs"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Máximo de Posts</Label>
+              <Input
+                type="number"
+                value={monitorPostsParams.maxPosts || ''}
+                onChange={(e) => updateParams({ maxPosts: parseInt(e.target.value) || undefined })}
+                placeholder="10"
+                className="h-8 text-xs"
+                min="1"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Intervalo de Verificação (ms)</Label>
+              <Input
+                type="number"
+                value={monitorPostsParams.checkInterval || 30000}
+                onChange={(e) => updateParams({ checkInterval: parseInt(e.target.value) || 30000 })}
+                placeholder="30000"
+                className="h-8 text-xs"
+                min="1000"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Máximo de Execuções</Label>
+              <Input
+                type="number"
+                value={monitorPostsParams.maxExecutions || 10}
+                onChange={(e) => updateParams({ maxExecutions: parseInt(e.target.value) || 10 })}
+                placeholder="10"
+                className="h-8 text-xs"
+                min="1"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Posts por Usuário</Label>
+              <Input
+                type="number"
+                value={monitorPostsParams.maxPostsPerUser || 5}
+                onChange={(e) => updateParams({ maxPostsPerUser: parseInt(e.target.value) || 5 })}
+                placeholder="5"
+                className="h-8 text-xs"
+                min="1"
               />
             </div>
           </div>

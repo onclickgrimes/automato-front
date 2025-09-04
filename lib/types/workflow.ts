@@ -42,8 +42,11 @@ export interface MonitorMessagesParams {
 
 export interface MonitorPostsParams {
   hashtags: string[];
-  usernames?: string[];
+  usernames?: string[]; // Array de usuários com posts monitorados
   maxPosts?: number;
+  checkInterval?: number; // Intervalo de verificação entre um ciclo e outro
+  maxExecutions?: number; // Número de loops que monitorar posts deve fazer
+  maxPostsPerUser?: number; // Número de primeiros posts que o loop deve extrair
 }
 
 export interface DelayParams {
