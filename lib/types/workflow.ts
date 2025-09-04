@@ -84,7 +84,7 @@ export interface WorkflowAction {
   description?: string;
 }
 
-// Interface para um step do workflow
+// Step do workflow
 export interface WorkflowStep {
   id: string;
   name: string;
@@ -96,6 +96,10 @@ export interface WorkflowStep {
   retry?: {
     maxAttempts: number;
     delayMs: number;
+  };
+  position?: {
+    x: number;
+    y: number;
   };
 }
 

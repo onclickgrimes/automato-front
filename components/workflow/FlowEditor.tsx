@@ -161,6 +161,26 @@ export default function FlowEditor({ initialWorkflow, onSave }: FlowEditorProps)
     }
   }, []);
 
+  // Função para atualizar as posições dos steps quando os nós são movidos
+  const updateStepPositions = useCallback(() => {
+    setWorkflow(prev => ({
+      ...prev,
+      steps: prev.steps.map(step => {
+        const node = nodes.find(n => n.id === step.id);
+        if (node) {
+          return {
+            ...step,
+            position: {
+              x: node.position.x,
+              y: node.position.y
+            }
+          };
+        }
+        return step;
+      })
+    }));
+  }, [nodes]);
+
   // Atualizar ordem quando as edges mudarem
   const handleEdgesChange = useCallback((changes: any[]) => {
     onEdgesChange(changes);
@@ -177,6 +197,22 @@ export default function FlowEditor({ initialWorkflow, onSave }: FlowEditorProps)
       }, 0);
     }
   }, [onEdgesChange, updateStepsOrder]);
+
+  // Atualizar posições quando os nós são movidos
+  const handleNodesChange = useCallback((changes: any[]) => {
+    onNodesChange(changes);
+    
+    // Se houve movimento de nós, atualizar posições no workflow
+    const hasPositionChanges = changes.some(change => 
+      change.type === 'position' && change.dragging === false
+    );
+    if (hasPositionChanges) {
+      // Usar setTimeout para garantir que o estado dos nós foi atualizado
+      setTimeout(() => {
+        updateStepPositions();
+      }, 0);
+    }
+  }, [onNodesChange, updateStepPositions]);
 
   // Sincronizar workflow com nodes
   React.useEffect(() => {
@@ -226,13 +262,17 @@ export default function FlowEditor({ initialWorkflow, onSave }: FlowEditorProps)
         .map((step, index) => {
           const existingCount = updatedNodes.length;
           const isConnected = connectedStepIds.has(step.id);
+          
+          // Usar posição salva se disponível, senão calcular uma nova posição
+          const position = step.position || {
+            x: 100 + ((existingCount + index) % 3) * 350, 
+            y: 100 + Math.floor((existingCount + index) / 3) * 200 
+          };
+          
           return {
             id: step.id,
             type: 'stepNode',
-            position: { 
-              x: 100 + ((existingCount + index) % 3) * 350, 
-              y: 100 + Math.floor((existingCount + index) / 3) * 200 
-            },
+            position,
             data: {
               step,
               onStepSelect: setSelectedStepId,
@@ -623,7 +663,7 @@ export default function FlowEditor({ initialWorkflow, onSave }: FlowEditorProps)
           <ReactFlow
             nodes={nodes}
             edges={edges}
-            onNodesChange={onNodesChange}
+            onNodesChange={handleNodesChange}
             onEdgesChange={handleEdgesChange}
             onConnect={onConnect}
             onInit={setReactFlowInstance}
