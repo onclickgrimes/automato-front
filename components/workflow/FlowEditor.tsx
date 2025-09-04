@@ -24,6 +24,7 @@ import {
   WorkflowAction 
 } from '@/lib/types/workflow';
 import StepNode, { StepNodeData } from './StepNode';
+import CustomEdge from './CustomEdge';
 import WorkflowSidebar from './WorkflowSidebar';
 import NodesSidebar from './NodesSidebar';
 import { Button } from '@/components/ui/button';
@@ -34,6 +35,10 @@ import { Download, Save, Play } from 'lucide-react';
 
 const nodeTypes = {
   stepNode: StepNode,
+};
+
+const edgeTypes = {
+  custom: CustomEdge,
 };
 
 interface FlowEditorProps {
@@ -179,12 +184,20 @@ export default function FlowEditor({ initialWorkflow, onSave }: FlowEditorProps)
       const existingNodeIds = new Set(currentNodes.map(node => node.id));
       const workflowStepIds = new Set(safeWorkflow.steps.map(step => step.id));
       
+      // Obter IDs dos steps conectados
+      const connectedStepIds = new Set<string>();
+      edges.forEach(edge => {
+        connectedStepIds.add(edge.source);
+        connectedStepIds.add(edge.target);
+      });
+      
       // Remover nós que não existem mais no workflow
       const filteredNodes = currentNodes.filter(node => workflowStepIds.has(node.id));
       
       // Atualizar dados dos nós existentes
       const updatedNodes = filteredNodes.map(node => {
         const step = safeWorkflow.steps.find(s => s.id === node.id);
+        const isConnected = connectedStepIds.has(node.id);
         if (step) {
           return {
             ...node,
@@ -194,8 +207,14 @@ export default function FlowEditor({ initialWorkflow, onSave }: FlowEditorProps)
               onStepSelect: setSelectedStepId,
               onAddAction: handleAddActionToStep,
               onDeleteStep: handleDeleteStep,
-              isSelected: selectedStepId === step.id
+              isSelected: selectedStepId === step.id,
+              isConnected
             } as StepNodeData,
+            style: {
+              ...node.style,
+              opacity: isConnected ? 1 : 0.5,
+              border: isConnected ? '2px solid #10b981' : '2px solid #ef4444'
+            }
           };
         }
         return node;
@@ -206,6 +225,7 @@ export default function FlowEditor({ initialWorkflow, onSave }: FlowEditorProps)
         .filter(step => !existingNodeIds.has(step.id))
         .map((step, index) => {
           const existingCount = updatedNodes.length;
+          const isConnected = connectedStepIds.has(step.id);
           return {
             id: step.id,
             type: 'stepNode',
@@ -218,27 +238,48 @@ export default function FlowEditor({ initialWorkflow, onSave }: FlowEditorProps)
               onStepSelect: setSelectedStepId,
               onAddAction: handleAddActionToStep,
               onDeleteStep: handleDeleteStep,
-              isSelected: selectedStepId === step.id
+              isSelected: selectedStepId === step.id,
+              isConnected
             } as StepNodeData,
+            style: {
+              opacity: isConnected ? 1 : 0.5,
+              border: isConnected ? '2px solid #10b981' : '2px solid #ef4444'
+            }
           };
         });
       
       return [...updatedNodes, ...newNodes];
     });
-  }, [safeWorkflow.steps, selectedStepId]);
+  }, [safeWorkflow.steps, selectedStepId, edges]);
 
   const selectedStep = safeWorkflow.steps.find(step => step.id === selectedStepId);
+
+  // Função para excluir uma edge
+  const handleDeleteEdge = useCallback((edgeId: string) => {
+    setEdges((eds) => {
+      const updatedEdges = eds.filter(edge => edge.id !== edgeId);
+      // Atualizar ordem dos steps baseada nas conexões
+      updateStepsOrder(updatedEdges);
+      return updatedEdges;
+    });
+  }, [setEdges, updateStepsOrder]);
 
   const onConnect = useCallback(
     (params: Connection) => {
       setEdges((eds) => {
-        const newEdges = addEdge(params, eds);
+        const newEdge = {
+          ...params,
+          id: `edge-${params.source}-${params.target}-${Date.now()}`,
+          type: 'custom',
+          data: { onDelete: handleDeleteEdge }
+        };
+        const newEdges = addEdge(newEdge, eds);
         // Atualizar ordem dos steps baseada nas conexões
         updateStepsOrder(newEdges);
         return newEdges;
       });
     },
-    [setEdges, updateStepsOrder]
+    [setEdges, updateStepsOrder, handleDeleteEdge]
   );
 
   const onDragOver = useCallback((event: React.DragEvent) => {
@@ -422,8 +463,32 @@ export default function FlowEditor({ initialWorkflow, onSave }: FlowEditorProps)
     }));
   }, []);
 
+  // Função para obter apenas os steps conectados
+  const getConnectedSteps = useCallback(() => {
+    if (edges.length === 0) {
+      // Se não há conexões, retornar array vazio (nenhum step no fluxo)
+      return [];
+    }
+
+    // Obter todos os IDs de steps que estão conectados
+    const connectedStepIds = new Set<string>();
+    edges.forEach(edge => {
+      connectedStepIds.add(edge.source);
+      connectedStepIds.add(edge.target);
+    });
+
+    // Filtrar apenas os steps que estão conectados
+    return safeWorkflow.steps.filter(step => connectedStepIds.has(step.id));
+  }, [edges, safeWorkflow.steps]);
+
   const handleExportJSON = () => {
-    const dataStr = JSON.stringify(workflow, null, 2);
+    const connectedSteps = getConnectedSteps();
+    const workflowToExport = {
+      ...workflow,
+      steps: connectedSteps
+    };
+    
+    const dataStr = JSON.stringify(workflowToExport, null, 2);
     const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
     
     const exportFileDefaultName = `${workflow.name.replace(/\s+/g, '_')}_workflow.json`;
@@ -453,10 +518,11 @@ export default function FlowEditor({ initialWorkflow, onSave }: FlowEditorProps)
       return;
     }
 
-    if (safeWorkflow.steps.length === 0) {
+    const connectedSteps = getConnectedSteps();
+    if (connectedSteps.length === 0) {
       toast({
         title: 'Erro',
-        description: 'O workflow precisa ter pelo menos um step.',
+        description: 'O workflow precisa ter pelo menos um step conectado para ser salvo.',
         variant: 'destructive'
       });
       return;
@@ -465,12 +531,17 @@ export default function FlowEditor({ initialWorkflow, onSave }: FlowEditorProps)
     setIsLoading(true);
     
     try {
+      const workflowToSave = {
+        ...workflow,
+        steps: connectedSteps
+      };
+      
       const { error } = await supabase
         .from('workflows')
         .upsert({
           id: workflow.id,
           user_id: user.id,
-          workflow: workflow
+          workflow: workflowToSave
         });
 
       if (error) throw error;
@@ -481,7 +552,7 @@ export default function FlowEditor({ initialWorkflow, onSave }: FlowEditorProps)
       });
       
       if (onSave) {
-        onSave(workflow);
+        onSave(workflowToSave);
       }
     } catch (error) {
       console.error('Erro ao salvar workflow:', error);
@@ -506,6 +577,16 @@ export default function FlowEditor({ initialWorkflow, onSave }: FlowEditorProps)
           <p className="text-sm text-gray-600">
             {workflow.description || 'Editor de Workflows'}
           </p>
+          <div className="flex items-center gap-2 mt-1">
+            <span className="text-xs text-gray-500">
+              Steps no fluxo: {getConnectedSteps().length} de {safeWorkflow.steps.length}
+            </span>
+            {edges.length === 0 && safeWorkflow.steps.length > 0 && (
+              <span className="text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded">
+                ⚠️ Conecte os nós para incluí-los no fluxo JSON
+              </span>
+            )}
+          </div>
         </div>
         
         <div className="flex items-center gap-2">
@@ -550,6 +631,7 @@ export default function FlowEditor({ initialWorkflow, onSave }: FlowEditorProps)
             onDragOver={onDragOver}
             onPaneClick={onPaneClick}
             nodeTypes={nodeTypes}
+            edgeTypes={edgeTypes}
             fitView
             className="bg-gray-50"
           >

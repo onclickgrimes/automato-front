@@ -14,6 +14,7 @@ export interface StepNodeData {
   onAddAction: (stepId: string) => void;
   onDeleteStep: (stepId: string) => void;
   isSelected: boolean;
+  isConnected: boolean;
 }
 
 // Cores para cada tipo de ação
