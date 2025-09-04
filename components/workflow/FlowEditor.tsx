@@ -181,6 +181,21 @@ export default function FlowEditor({ initialWorkflow, onSave }: FlowEditorProps)
     }));
   }, [nodes]);
 
+  // Função para atualizar as edges no workflow
+  const updateWorkflowEdges = useCallback((currentEdges: Edge[]) => {
+    const mappedEdges = currentEdges.map(edge => ({
+      id: edge.id,
+      source: edge.source,
+      target: edge.target,
+      type: edge.type || 'default'
+    }));
+    
+    setWorkflow(prev => ({
+      ...prev,
+      edges: mappedEdges
+    }));
+  }, []);
+
   // Atualizar ordem quando as edges mudarem
   const handleEdgesChange = useCallback((changes: any[]) => {
     onEdgesChange(changes);
@@ -192,11 +207,20 @@ export default function FlowEditor({ initialWorkflow, onSave }: FlowEditorProps)
       setTimeout(() => {
         setEdges(currentEdges => {
           updateStepsOrder(currentEdges);
+          updateWorkflowEdges(currentEdges);
+          return currentEdges;
+        });
+      }, 0);
+    } else {
+      // Para outras mudanças, atualizar imediatamente
+      setTimeout(() => {
+        setEdges(currentEdges => {
+          updateWorkflowEdges(currentEdges);
           return currentEdges;
         });
       }, 0);
     }
-  }, [onEdgesChange, updateStepsOrder]);
+  }, [onEdgesChange, updateStepsOrder, updateWorkflowEdges]);
 
   // Atualizar posições quando os nós são movidos
   const handleNodesChange = useCallback((changes: any[]) => {
@@ -300,9 +324,25 @@ export default function FlowEditor({ initialWorkflow, onSave }: FlowEditorProps)
       const updatedEdges = eds.filter(edge => edge.id !== edgeId);
       // Atualizar ordem dos steps baseada nas conexões
       updateStepsOrder(updatedEdges);
+      // Atualizar edges no workflow
+      updateWorkflowEdges(updatedEdges);
       return updatedEdges;
     });
-  }, [setEdges, updateStepsOrder]);
+  }, [setEdges, updateStepsOrder, updateWorkflowEdges]);
+
+  // Carregar edges do workflow inicial
+  React.useEffect(() => {
+    if (initialWorkflow?.edges && initialWorkflow.edges.length > 0) {
+      const workflowEdges = initialWorkflow.edges.map(edge => ({
+        id: edge.id,
+        source: edge.source,
+        target: edge.target,
+        type: edge.type || 'custom',
+        data: { onDelete: handleDeleteEdge }
+      }));
+      setEdges(workflowEdges);
+    }
+  }, [initialWorkflow?.edges, setEdges, handleDeleteEdge]);
 
   const onConnect = useCallback(
     (params: Connection) => {
@@ -316,10 +356,12 @@ export default function FlowEditor({ initialWorkflow, onSave }: FlowEditorProps)
         const newEdges = addEdge(newEdge, eds);
         // Atualizar ordem dos steps baseada nas conexões
         updateStepsOrder(newEdges);
+        // Atualizar edges no workflow
+        updateWorkflowEdges(newEdges);
         return newEdges;
       });
     },
-    [setEdges, updateStepsOrder, handleDeleteEdge]
+    [setEdges, updateStepsOrder, handleDeleteEdge, updateWorkflowEdges]
   );
 
   const onDragOver = useCallback((event: React.DragEvent) => {
@@ -573,7 +615,8 @@ export default function FlowEditor({ initialWorkflow, onSave }: FlowEditorProps)
     try {
       const workflowToSave = {
         ...workflow,
-        steps: connectedSteps
+        steps: connectedSteps,
+        edges: workflow.edges || []
       };
       
       const { error } = await supabase

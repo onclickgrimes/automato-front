@@ -110,12 +110,21 @@ export interface WorkflowConfig {
   timeout?: number; // timeout global em milissegundos
 }
 
-// Interface principal do workflow
+// Interface para representar uma conexão entre steps
+export interface WorkflowEdge {
+  id: string;
+  source: string;
+  target: string;
+  type?: string;
+}
+
+// Workflow principal
 export interface Workflow {
   id: string;
   name: string;
   description?: string;
   steps: WorkflowStep[];
+  edges?: WorkflowEdge[];
   config?: WorkflowConfig;
 }
 
