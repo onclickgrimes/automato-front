@@ -15,7 +15,8 @@ import {
   Play, 
   Clock,
   ArrowLeft,
-  Workflow
+  Workflow,
+  Star
 } from 'lucide-react';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { createClient } from '@/lib/supabase/client';
@@ -26,6 +27,7 @@ interface WorkflowRecord {
   id: string;
   user_id: string;
   workflow: WorkflowType;
+  favorite?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -115,6 +117,38 @@ export default function WorkflowsPage() {
     } catch (error) {
       console.error('Erro ao excluir workflow:', error);
       alert('Erro ao excluir workflow.');
+    }
+  };
+
+  const toggleFavorite = async (workflowId: string, currentFavorite: boolean) => {
+    try {
+      const response = await fetch(`/api/workflows/${workflowId}/favorite`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ favorite: !currentFavorite }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Erro ao atualizar favorito');
+      }
+
+      const result = await response.json();
+      
+      // Atualizar o estado local
+      setWorkflows(prev => prev.map(w => 
+        w.id === workflowId 
+          ? { ...w, favorite: !currentFavorite }
+          : w
+      ));
+
+      // Mostrar mensagem de sucesso
+      console.log(result.message);
+    } catch (error) {
+      console.error('Erro ao atualizar favorito:', error);
+      alert(`Erro ao atualizar favorito: ${error.message}`);
     }
   };
 
@@ -310,6 +344,21 @@ export default function WorkflowsPage() {
                           <h3 className="text-lg font-semibold text-gray-900">
                             {workflow.name}
                           </h3>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => toggleFavorite(workflowRecord.id, workflowRecord.favorite || false)}
+                            className="p-1 h-auto hover:bg-yellow-50"
+                            title={workflowRecord.favorite ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
+                          >
+                            <Star 
+                              className={`w-5 h-5 transition-colors ${
+                                workflowRecord.favorite 
+                                  ? 'text-yellow-500 fill-yellow-500' 
+                                  : 'text-gray-400 hover:text-yellow-500'
+                              }`} 
+                            />
+                          </Button>
                           <Badge variant="outline">
                             {workflow.steps?.length || 0} step{(workflow.steps?.length || 0) !== 1 ? 's' : ''}
                           </Badge>

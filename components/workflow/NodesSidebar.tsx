@@ -81,29 +81,6 @@ export default function NodesSidebar({ onAddStep }: NodesSidebarProps) {
   return (
     <div className="w-64 bg-gray-50 border-r border-gray-200 p-4 overflow-y-auto">
       <div className="space-y-4">
-        {/* Seção para adicionar novo step */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-semibold text-gray-800">
-              Componentes
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pt-0">
-            <div
-              className="flex items-center gap-2 p-3 bg-blue-50 border-2 border-dashed border-blue-300 rounded-lg cursor-pointer hover:bg-blue-100 transition-colors"
-              onClick={onAddStep}
-            >
-              <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
-                <Plus className="w-4 h-4 text-white" />
-              </div>
-              <div>
-                <div className="text-sm font-medium text-blue-800">Novo Step</div>
-                <div className="text-xs text-blue-600">Clique para adicionar</div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
         {/* Seção de ações disponíveis */}
         <Card>
           <CardHeader className="pb-3">

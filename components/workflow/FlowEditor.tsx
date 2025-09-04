@@ -773,14 +773,14 @@ export default function FlowEditor({ initialWorkflow, onSave }: FlowEditorProps)
       <div className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => router.back()}
-            className="flex items-center gap-2"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Voltar
-          </Button>
+             variant="ghost"
+             size="sm"
+             onClick={() => router.push('/dashboard/instagram/flows')}
+             className="flex items-center gap-2"
+           >
+             <ArrowLeft className="w-4 h-4" />
+             Voltar
+           </Button>
           
           <div>
             <h1 className="text-xl font-semibold text-gray-800">
