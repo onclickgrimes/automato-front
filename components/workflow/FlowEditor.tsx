@@ -30,6 +30,7 @@ import WorkflowSidebar from './WorkflowSidebar';
 import NodesSidebar from './NodesSidebar';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from '@/components/ui/use-toast';
@@ -87,17 +88,17 @@ export default function FlowEditor({ initialWorkflow, onSave }: FlowEditorProps)
       if (!user) return;
       
       try {
-        const { data, error } = await supabase
-          .from('instagram_accounts')
-          .select('*')
-          .eq('user_id', user.id)
-          .eq('is_active', true);
-        
-        if (error) throw error;
-        
-        setInstagramAccounts(data || []);
-        if (data && data.length > 0 && !selectedAccountId) {
-          setSelectedAccountId(data[0].id);
+        const response = await fetch('/api/instagram-accounts');
+        const result = await response.json();
+
+        if (!response.ok) {
+          throw new Error(result.error || 'Erro ao carregar contas');
+        }
+
+        setInstagramAccounts(result.data || []);
+        // Selecionar a primeira conta por padrão
+        if (result.data && result.data.length > 0 && !selectedAccountId) {
+          setSelectedAccountId(result.data[0].id);
         }
       } catch (error) {
         console.error('Erro ao carregar contas do Instagram:', error);
@@ -105,7 +106,7 @@ export default function FlowEditor({ initialWorkflow, onSave }: FlowEditorProps)
     };
     
     loadInstagramAccounts();
-  }, [user, supabase, selectedAccountId]);
+  }, [user, selectedAccountId]);
 
   // Função para atualizar a ordem dos steps baseada nas conexões
   const updateStepsOrder = useCallback((currentEdges: Edge[]) => {
@@ -514,36 +515,33 @@ export default function FlowEditor({ initialWorkflow, onSave }: FlowEditorProps)
      setIsLoading(true);
      
      try {
-       const workflowToExecute = {
-         ...workflow,
-         steps: connectedSteps,
-         edges: workflow.edges || []
-       };
+       // Usar a rota de API para executar o workflow
+       const response = await fetch(`/api/workflows/${workflow.id}/start`, {
+         method: 'POST',
+         headers: {
+           'Content-Type': 'application/json',
+         },
+         body: JSON.stringify({
+           account_id: selectedAccountId
+         })
+       });
+ 
+       if (!response.ok) {
+         const errorData = await response.json();
+         throw new Error(errorData.error || 'Erro ao executar workflow');
+       }
+ 
+       const result = await response.json();
        
-       // Usar a tabela routines existente para armazenar o workflow para execução
-       const { error } = await supabase
-         .from('routines')
-         .insert({
-           user_id: user?.id,
-           name: `Execução: ${workflow.name}`,
-           description: `Execução do workflow ${workflow.name}`,
-           trigger_type: 'manual',
-           actions: workflowToExecute,
-           social_account_id: selectedAccountId,
-           status: 'active'
-         });
- 
-       if (error) throw error;
- 
        toast({
          title: 'Sucesso',
-         description: 'Workflow enviado para execução!',
+         description: 'Workflow iniciado com sucesso!',
        });
      } catch (error) {
        console.error('Erro ao executar workflow:', error);
        toast({
          title: 'Erro',
-         description: 'Erro ao executar o workflow. Tente novamente.',
+         description: error instanceof Error ? error.message : 'Erro ao executar o workflow. Tente novamente.',
          variant: 'destructive'
        });
      } finally {
@@ -813,6 +811,11 @@ export default function FlowEditor({ initialWorkflow, onSave }: FlowEditorProps)
                 {instagramAccounts.map((account) => (
                   <SelectItem key={account.id} value={account.id}>
                     @{account.username}
+                    {account.is_logged_in && (
+                      <Badge variant="secondary" className="ml-2 text-xs">
+                        Online
+                      </Badge>
+                    )}
                   </SelectItem>
                 ))}
               </SelectContent>
