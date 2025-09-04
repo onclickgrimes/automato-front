@@ -70,6 +70,109 @@ export default function FlowEditor({ initialWorkflow, onSave }: FlowEditorProps)
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [isLoading, setIsLoading] = useState(false);
 
+  // Função para atualizar a ordem dos steps baseada nas conexões
+  const updateStepsOrder = useCallback((currentEdges: Edge[]) => {
+    if (currentEdges.length === 0) return;
+
+    // Criar um mapa de conexões (source -> target)
+    const connections = new Map<string, string[]>();
+    const incomingConnections = new Map<string, string[]>();
+    
+    currentEdges.forEach(edge => {
+      if (!connections.has(edge.source)) {
+        connections.set(edge.source, []);
+      }
+      connections.get(edge.source)!.push(edge.target);
+      
+      if (!incomingConnections.has(edge.target)) {
+        incomingConnections.set(edge.target, []);
+      }
+      incomingConnections.get(edge.target)!.push(edge.source);
+    });
+
+    // Encontrar nós sem conexões de entrada (nós iniciais)
+    const allNodeIds = new Set([...connections.keys(), ...Array.from(connections.values()).flat()]);
+    const startNodes = Array.from(allNodeIds).filter(nodeId => !incomingConnections.has(nodeId));
+    
+    // Se não há nós iniciais claros, manter ordem atual
+    if (startNodes.length === 0) return;
+
+    // Ordenação topológica para determinar a sequência correta
+    const orderedStepIds: string[] = [];
+    const visited = new Set<string>();
+    const visiting = new Set<string>();
+
+    const topologicalSort = (nodeId: string): boolean => {
+      if (visiting.has(nodeId)) {
+        // Ciclo detectado, manter ordem atual
+        return false;
+      }
+      if (visited.has(nodeId)) {
+        return true;
+      }
+
+      visiting.add(nodeId);
+      
+      const targets = connections.get(nodeId) || [];
+      for (const target of targets) {
+        if (!topologicalSort(target)) {
+          return false;
+        }
+      }
+      
+      visiting.delete(nodeId);
+      visited.add(nodeId);
+      orderedStepIds.unshift(nodeId); // Adicionar no início para ordem correta
+      
+      return true;
+    };
+
+    // Processar todos os nós iniciais
+    let hasValidOrder = true;
+    for (const startNode of startNodes) {
+      if (!topologicalSort(startNode)) {
+        hasValidOrder = false;
+        break;
+      }
+    }
+
+    // Se a ordenação foi bem-sucedida, atualizar o workflow
+    if (hasValidOrder && orderedStepIds.length > 0) {
+      setWorkflow(prev => {
+        const stepMap = new Map(prev.steps.map(step => [step.id, step]));
+        const orderedSteps = orderedStepIds
+          .map(id => stepMap.get(id))
+          .filter(step => step !== undefined) as WorkflowStep[];
+        
+        // Adicionar steps que não estão conectados no final
+        const connectedStepIds = new Set(orderedStepIds);
+        const unconnectedSteps = prev.steps.filter(step => !connectedStepIds.has(step.id));
+        
+        return {
+          ...prev,
+          steps: [...orderedSteps, ...unconnectedSteps]
+        };
+      });
+    }
+  }, []);
+
+  // Atualizar ordem quando as edges mudarem
+  const handleEdgesChange = useCallback((changes: any[]) => {
+    onEdgesChange(changes);
+    
+    // Se houve remoção de edges, atualizar ordem
+    const hasRemovals = changes.some(change => change.type === 'remove');
+    if (hasRemovals) {
+      // Usar setTimeout para garantir que o estado das edges foi atualizado
+      setTimeout(() => {
+        setEdges(currentEdges => {
+          updateStepsOrder(currentEdges);
+          return currentEdges;
+        });
+      }, 0);
+    }
+  }, [onEdgesChange, updateStepsOrder]);
+
   // Sincronizar workflow com nodes
   React.useEffect(() => {
     setNodes((currentNodes) => {
@@ -127,8 +230,15 @@ export default function FlowEditor({ initialWorkflow, onSave }: FlowEditorProps)
   const selectedStep = safeWorkflow.steps.find(step => step.id === selectedStepId);
 
   const onConnect = useCallback(
-    (params: Connection) => setEdges((eds) => addEdge(params, eds)),
-    [setEdges]
+    (params: Connection) => {
+      setEdges((eds) => {
+        const newEdges = addEdge(params, eds);
+        // Atualizar ordem dos steps baseada nas conexões
+        updateStepsOrder(newEdges);
+        return newEdges;
+      });
+    },
+    [setEdges, updateStepsOrder]
   );
 
   const onDragOver = useCallback((event: React.DragEvent) => {
@@ -403,7 +513,7 @@ export default function FlowEditor({ initialWorkflow, onSave }: FlowEditorProps)
             nodes={nodes}
             edges={edges}
             onNodesChange={onNodesChange}
-            onEdgesChange={onEdgesChange}
+            onEdgesChange={handleEdgesChange}
             onConnect={onConnect}
             onInit={setReactFlowInstance}
             onDrop={onDrop}

@@ -16,7 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
-import { Trash2, Plus } from 'lucide-react';
+import { Trash2, Plus, ArrowDown } from 'lucide-react';
 
 interface WorkflowSidebarProps {
   workflow: Workflow;
@@ -302,6 +302,40 @@ export default function WorkflowSidebar({
                   </Select>
                 </div>
               </div>
+            </div>
+            
+            <Separator />
+            
+            <div>
+              <Label className="text-sm font-medium mb-3 block">Ordem dos Steps</Label>
+              <div className="text-xs text-gray-600 mb-3">
+                A ordem é determinada automaticamente pelas conexões entre os nós no canvas.
+              </div>
+              
+              {workflow.steps.length > 0 ? (
+                <div className="space-y-2">
+                  {workflow.steps.map((step, index) => (
+                    <div key={step.id} className="flex items-center gap-2 p-2 bg-gray-50 rounded">
+                      <Badge variant="outline" className="text-xs min-w-[24px] justify-center">
+                        {index + 1}
+                      </Badge>
+                      <div className="flex-1 text-xs font-medium truncate">
+                        {step.name}
+                      </div>
+                      <Badge variant="secondary" className="text-xs">
+                        {step.actions.length} ações
+                      </Badge>
+                      {index < workflow.steps.length - 1 && (
+                        <ArrowDown className="h-3 w-3 text-gray-400" />
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-xs text-gray-500 italic">
+                  Nenhum step criado ainda
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
