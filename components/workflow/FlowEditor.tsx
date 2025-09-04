@@ -267,6 +267,7 @@ export default function FlowEditor({ initialWorkflow, onSave }: FlowEditorProps)
               onStepSelect: setSelectedStepId,
               onAddAction: handleAddActionToStep,
               onDeleteStep: handleDeleteStep,
+              onCopyStep: handleCopyStep,
               isSelected: selectedStepId === step.id,
               isConnected
             } as StepNodeData,
@@ -302,6 +303,7 @@ export default function FlowEditor({ initialWorkflow, onSave }: FlowEditorProps)
               onStepSelect: setSelectedStepId,
               onAddAction: handleAddActionToStep,
               onDeleteStep: handleDeleteStep,
+              onCopyStep: handleCopyStep,
               isSelected: selectedStepId === step.id,
               isConnected
             } as StepNodeData,
@@ -531,6 +533,30 @@ export default function FlowEditor({ initialWorkflow, onSave }: FlowEditorProps)
       setSelectedStepId(undefined);
     }
   }, [selectedStepId]);
+
+  const handleCopyStep = useCallback((stepId: string) => {
+    const stepToCopy = safeWorkflow.steps.find(step => step.id === stepId);
+    if (!stepToCopy) return;
+
+    const timestamp = Date.now();
+    const copiedStep: WorkflowStep = {
+      ...stepToCopy,
+      id: `step-${timestamp}`,
+      name: `${stepToCopy.name} (Cópia)`,
+      actions: stepToCopy.actions.map(action => ({ ...action })),
+      position: stepToCopy.position ? {
+        x: stepToCopy.position.x + 50,
+        y: stepToCopy.position.y + 50
+      } : undefined
+    };
+
+    setWorkflow(prev => ({
+      ...prev,
+      steps: [...(prev.steps || []), copiedStep]
+    }));
+    
+    setSelectedStepId(copiedStep.id);
+  }, [safeWorkflow.steps]);
 
   const handleWorkflowChange = useCallback((updatedWorkflow: Workflow) => {
     setWorkflow(updatedWorkflow);

@@ -6,13 +6,14 @@ import { WorkflowStep, WorkflowAction } from '@/lib/types/workflow';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Settings, Trash2 } from 'lucide-react';
+import { Plus, Settings, Trash2, Copy } from 'lucide-react';
 
 export interface StepNodeData {
   step: WorkflowStep;
   onStepSelect: (stepId: string) => void;
   onAddAction: (stepId: string) => void;
   onDeleteStep: (stepId: string) => void;
+  onCopyStep?: (stepId: string) => void;
   isSelected: boolean;
   isConnected: boolean;
 }
@@ -42,7 +43,7 @@ const actionLabels: Record<string, string> = {
 };
 
 export default function StepNode({ data, selected }: NodeProps<StepNodeData>) {
-  const { step, onStepSelect, onAddAction, onDeleteStep, isSelected } = data;
+  const { step, onStepSelect, onAddAction, onDeleteStep, onCopyStep, isSelected } = data;
 
   const handleStepClick = () => {
     onStepSelect(step.id);
@@ -56,6 +57,13 @@ export default function StepNode({ data, selected }: NodeProps<StepNodeData>) {
   const handleDeleteStep = (e: React.MouseEvent) => {
     e.stopPropagation();
     onDeleteStep(step.id);
+  };
+
+  const handleCopyStep = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onCopyStep) {
+      onCopyStep(step.id);
+    }
   };
 
   return (
@@ -84,6 +92,15 @@ export default function StepNode({ data, selected }: NodeProps<StepNodeData>) {
                 className="h-6 w-6 p-0 hover:bg-gray-100"
               >
                 <Settings className="h-3 w-3" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 w-6 p-0 hover:bg-blue-100 hover:text-blue-600"
+                onClick={handleCopyStep}
+                title="Copiar nó"
+              >
+                <Copy className="h-3 w-3" />
               </Button>
               <Button
                 variant="ghost"
