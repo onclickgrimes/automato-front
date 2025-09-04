@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   ReactFlow,
   Node,
@@ -23,15 +23,18 @@ import {
   WorkflowActionType,
   WorkflowAction 
 } from '@/lib/types/workflow';
+import { InstagramAccount } from '@/lib/types/instagram-accounts';
 import StepNode, { StepNodeData } from './StepNode';
 import CustomEdge from './CustomEdge';
 import WorkflowSidebar from './WorkflowSidebar';
 import NodesSidebar from './NodesSidebar';
 import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from '@/components/ui/use-toast';
-import { Download, Save, Play } from 'lucide-react';
+import { Download, Save, Play, ArrowLeft } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
 const nodeTypes = {
   stepNode: StepNode,
@@ -49,8 +52,11 @@ interface FlowEditorProps {
 export default function FlowEditor({ initialWorkflow, onSave }: FlowEditorProps) {
   const { user } = useAuth();
   const supabase = createClient();
+  const router = useRouter();
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance | null>(null);
+  const [instagramAccounts, setInstagramAccounts] = useState<InstagramAccount[]>([]);
+  const [selectedAccountId, setSelectedAccountId] = useState<string>('');
   
   // Estado do workflow
   const [workflow, setWorkflow] = useState<Workflow>(initialWorkflow || {
@@ -74,6 +80,32 @@ export default function FlowEditor({ initialWorkflow, onSave }: FlowEditorProps)
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Carregar contas do Instagram
+  useEffect(() => {
+    const loadInstagramAccounts = async () => {
+      if (!user) return;
+      
+      try {
+        const { data, error } = await supabase
+          .from('instagram_accounts')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('is_active', true);
+        
+        if (error) throw error;
+        
+        setInstagramAccounts(data || []);
+        if (data && data.length > 0 && !selectedAccountId) {
+          setSelectedAccountId(data[0].id);
+        }
+      } catch (error) {
+        console.error('Erro ao carregar contas do Instagram:', error);
+      }
+    };
+    
+    loadInstagramAccounts();
+  }, [user, supabase, selectedAccountId]);
 
   // Função para atualizar a ordem dos steps baseada nas conexões
   const updateStepsOrder = useCallback((currentEdges: Edge[]) => {
@@ -459,6 +491,66 @@ export default function FlowEditor({ initialWorkflow, onSave }: FlowEditorProps)
     }
   };
 
+  const handleExecuteWorkflow = async () => {
+     if (!selectedAccountId) {
+       toast({
+         title: 'Erro',
+         description: 'Selecione uma conta do Instagram para executar o workflow.',
+         variant: 'destructive'
+       });
+       return;
+     }
+ 
+     const connectedSteps = getConnectedSteps();
+     if (connectedSteps.length === 0) {
+       toast({
+         title: 'Erro',
+         description: 'O workflow precisa ter pelo menos um step conectado para ser executado.',
+         variant: 'destructive'
+       });
+       return;
+     }
+ 
+     setIsLoading(true);
+     
+     try {
+       const workflowToExecute = {
+         ...workflow,
+         steps: connectedSteps,
+         edges: workflow.edges || []
+       };
+       
+       // Usar a tabela routines existente para armazenar o workflow para execução
+       const { error } = await supabase
+         .from('routines')
+         .insert({
+           user_id: user?.id,
+           name: `Execução: ${workflow.name}`,
+           description: `Execução do workflow ${workflow.name}`,
+           trigger_type: 'manual',
+           actions: workflowToExecute,
+           social_account_id: selectedAccountId,
+           status: 'active'
+         });
+ 
+       if (error) throw error;
+ 
+       toast({
+         title: 'Sucesso',
+         description: 'Workflow enviado para execução!',
+       });
+     } catch (error) {
+       console.error('Erro ao executar workflow:', error);
+       toast({
+         title: 'Erro',
+         description: 'Erro ao executar o workflow. Tente novamente.',
+         variant: 'destructive'
+       });
+     } finally {
+       setIsLoading(false);
+     }
+   };
+
   const getDefaultParams = (type: WorkflowActionType): any => {
     switch (type) {
       case 'sendDirectMessage':
@@ -679,26 +771,54 @@ export default function FlowEditor({ initialWorkflow, onSave }: FlowEditorProps)
     <div className="h-screen flex flex-col bg-gray-100">
       {/* Header */}
       <div className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-semibold text-gray-800">
-            {workflow.name}
-          </h1>
-          <p className="text-sm text-gray-600">
-            {workflow.description || 'Editor de Workflows'}
-          </p>
-          <div className="flex items-center gap-2 mt-1">
-            <span className="text-xs text-gray-500">
-              Steps no fluxo: {getConnectedSteps().length} de {safeWorkflow.steps.length}
-            </span>
-            {edges.length === 0 && safeWorkflow.steps.length > 0 && (
-              <span className="text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded">
-                ⚠️ Conecte os nós para incluí-los no fluxo JSON
+        <div className="flex items-center gap-4">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => router.back()}
+            className="flex items-center gap-2"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Voltar
+          </Button>
+          
+          <div>
+            <h1 className="text-xl font-semibold text-gray-800">
+              {workflow.name}
+            </h1>
+            <p className="text-sm text-gray-600">
+              {workflow.description || 'Editor de Workflows'}
+            </p>
+            <div className="flex items-center gap-2 mt-1">
+              <span className="text-xs text-gray-500">
+                Steps no fluxo: {getConnectedSteps().length} de {safeWorkflow.steps.length}
               </span>
-            )}
+              {edges.length === 0 && safeWorkflow.steps.length > 0 && (
+                <span className="text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded">
+                  ⚠️ Conecte os nós para incluí-los no fluxo JSON
+                </span>
+              )}
+            </div>
           </div>
         </div>
         
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-600">Conta:</span>
+            <Select value={selectedAccountId} onValueChange={setSelectedAccountId}>
+              <SelectTrigger className="w-48">
+                <SelectValue placeholder="Selecione uma conta" />
+              </SelectTrigger>
+              <SelectContent>
+                {instagramAccounts.map((account) => (
+                  <SelectItem key={account.id} value={account.id}>
+                    @{account.username}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          
           <Button
             variant="outline"
             size="sm"
@@ -718,6 +838,17 @@ export default function FlowEditor({ initialWorkflow, onSave }: FlowEditorProps)
           >
             <Save className="w-4 h-4" />
             {isLoading ? 'Salvando...' : 'Salvar'}
+          </Button>
+          
+          <Button
+            variant="default"
+            size="sm"
+            onClick={handleExecuteWorkflow}
+            disabled={isLoading || !selectedAccountId}
+            className="flex items-center gap-2 bg-green-600 hover:bg-green-700"
+          >
+            <Play className="w-4 h-4" />
+            {isLoading ? 'Executando...' : 'Executar'}
           </Button>
         </div>
       </div>
