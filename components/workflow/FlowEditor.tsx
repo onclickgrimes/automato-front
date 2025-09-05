@@ -220,6 +220,8 @@ export default function FlowEditor({ initialWorkflow, onSave }: FlowEditorProps)
       id: edge.id,
       source: edge.source,
       target: edge.target,
+      sourceHandle: edge.sourceHandle,
+      targetHandle: edge.targetHandle,
       type: edge.type || 'default'
     }));
     
@@ -372,6 +374,8 @@ export default function FlowEditor({ initialWorkflow, onSave }: FlowEditorProps)
         id: edge.id,
         source: edge.source,
         target: edge.target,
+        sourceHandle: edge.sourceHandle,
+        targetHandle: edge.targetHandle,
         type: edge.type || 'custom',
         data: { onDelete: handleDeleteEdge }
       }));
@@ -384,8 +388,10 @@ export default function FlowEditor({ initialWorkflow, onSave }: FlowEditorProps)
       setEdges((eds) => {
         const newEdge = {
           ...params,
-          id: `edge-${params.source}-${params.target}-${Date.now()}`,
+          id: `edge-${params.source}-${params.target}-${params.sourceHandle || 'default'}-${Date.now()}`,
           type: 'custom',
+          sourceHandle: params.sourceHandle || undefined,
+          targetHandle: params.targetHandle || undefined,
           data: { onDelete: handleDeleteEdge }
         };
         const newEdges = addEdge(newEdge, eds);

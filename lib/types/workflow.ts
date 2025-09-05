@@ -10,7 +10,9 @@ export type WorkflowActionType =
   | 'delay'
   | 'uploadPhoto'
   | 'startMessageProcessor'
-  | 'stopMessageProcessor';
+  | 'stopMessageProcessor'
+  | 'if'
+  | 'forEach';
 
 // Interfaces mantidas para compatibilidade com código existente
 export interface SendDirectMessageParams {
@@ -58,6 +60,17 @@ export interface UploadPhotoParams {
   imagePath: string; // URL pública da imagem no Supabase Storage
 }
 
+export interface IfParams {
+  variable: string; // Variável a ser testada (pode usar template {{}})
+  operator: 'equals' | 'notEquals' | 'isEmpty' | 'isNotEmpty' | 'greaterThan' | 'lessThan' | 'contains';
+  value?: any; // Valor para comparação (opcional para isEmpty/isNotEmpty)
+}
+
+export interface ForEachParams {
+  list: string; // Lista para iterar (pode usar template {{}})
+  actions: WorkflowAction[]; // Ações a serem executadas para cada item
+}
+
 // Interface para uma ação do workflow
 export interface WorkflowAction {
   type: WorkflowActionType;
@@ -89,6 +102,12 @@ export interface WorkflowAction {
       delayBetweenReplies?: { min: number; max: number };
       enableHumanization?: boolean;
     };
+    // Parâmetros para ações condicionais
+    variable?: string; // Para if
+    operator?: 'equals' | 'notEquals' | 'isEmpty' | 'isNotEmpty' | 'greaterThan' | 'lessThan' | 'contains'; // Para if
+    value?: any; // Para if
+    list?: string; // Para forEach
+    actions?: WorkflowAction[]; // Para forEach - ações aninhadas
   };
   description?: string;
 }
@@ -124,6 +143,8 @@ export interface WorkflowEdge {
   id: string;
   source: string;
   target: string;
+  sourceHandle?: string; // Para identificar caminhos condicionais (onTrue, onFalse, etc.)
+  targetHandle?: string;
   type?: string;
 }
 

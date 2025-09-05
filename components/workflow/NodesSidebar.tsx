@@ -4,80 +4,13 @@ import React from 'react';
 import { WorkflowActionType } from '@/lib/types/workflow';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { 
-  MessageCircle, 
-  Heart, 
-  UserPlus, 
-  UserMinus, 
-  MessageSquare, 
-  Eye, 
-  Search, 
-  Clock,
-  Plus,
-  Camera
-} from 'lucide-react';
+import { Plus } from 'lucide-react';
 
 interface NodesSidebarProps {
   onAddStep: () => void;
 }
 
-// Configuração dos tipos de ação com ícones e cores
-const actionConfig = {
-  sendDirectMessage: {
-    label: 'Enviar DM',
-    icon: MessageCircle,
-    color: 'bg-blue-500',
-    description: 'Enviar mensagem direta para um usuário'
-  },
-  likePost: {
-    label: 'Curtir Post',
-    icon: Heart,
-    color: 'bg-red-500',
-    description: 'Curtir um post específico'
-  },
-  followUser: {
-    label: 'Seguir',
-    icon: UserPlus,
-    color: 'bg-green-500',
-    description: 'Seguir um usuário'
-  },
-  unfollowUser: {
-    label: 'Deixar de Seguir',
-    icon: UserMinus,
-    color: 'bg-orange-500',
-    description: 'Deixar de seguir um usuário'
-  },
-  comment: {
-    label: 'Comentar',
-    icon: MessageSquare,
-    color: 'bg-purple-500',
-    description: 'Comentar em um post'
-  },
-  monitorMessages: {
-    label: 'Monitorar Mensagens',
-    icon: Eye,
-    color: 'bg-yellow-500',
-    description: 'Monitorar mensagens recebidas'
-  },
-  monitorPosts: {
-    label: 'Monitorar Posts',
-    icon: Search,
-    color: 'bg-indigo-500',
-    description: 'Monitorar posts por hashtags'
-  },
-  delay: {
-    label: 'Aguardar',
-    icon: Clock,
-    color: 'bg-gray-500',
-    description: 'Aguardar um tempo específico'
-  },
-  uploadPhoto: {
-    label: 'Postar Foto',
-    icon: Camera,
-    color: 'bg-pink-500',
-    description: 'Fazer upload e postar uma foto com legenda'
-  }
-};
+import { actionConfig } from '@/lib/config/workflow-actions';
 
 export default function NodesSidebar({ onAddStep }: NodesSidebarProps) {
   const onDragStart = (event: React.DragEvent, actionType: WorkflowActionType) => {

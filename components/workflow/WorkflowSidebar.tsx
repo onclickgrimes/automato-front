@@ -17,6 +17,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { Trash2, Plus, ArrowDown } from 'lucide-react';
+import { actionConfig } from '@/lib/config/workflow-actions';
 
 interface WorkflowSidebarProps {
   workflow: Workflow;
@@ -25,19 +26,12 @@ interface WorkflowSidebarProps {
   onStepChange: (step: WorkflowStep) => void;
 }
 
-const actionTypes: { value: WorkflowActionType; label: string }[] = [
-  { value: 'sendDirectMessage', label: 'Enviar Mensagem Direta' },
-  { value: 'likePost', label: 'Curtir Post' },
-  { value: 'followUser', label: 'Seguir Usuário' },
-  { value: 'unfollowUser', label: 'Deixar de Seguir' },
-  { value: 'comment', label: 'Comentar' },
-  { value: 'uploadPhoto', label: 'Postar Foto' },
-  { value: 'monitorMessages', label: 'Monitorar Mensagens' },
-  { value: 'monitorPosts', label: 'Monitorar Posts' },
-  { value: 'delay', label: 'Aguardar' },
-  { value: 'startMessageProcessor', label: 'Iniciar Processador de Mensagens' },
-  { value: 'stopMessageProcessor', label: 'Parar Processador de Mensagens' },
-];
+// Usar configuração centralizada para tipos de ação
+const actionTypes: { value: WorkflowActionType; label: string }[] = 
+  Object.entries(actionConfig).map(([key, config]) => ({
+    value: key as WorkflowActionType,
+    label: config.label
+  }));
 
 export default function WorkflowSidebar({ 
   workflow, 
@@ -118,6 +112,17 @@ export default function WorkflowSidebar({
         return { aiConfig: {}, processingConfig: {} };
       case 'stopMessageProcessor':
         return {};
+      case 'if':
+        return { 
+          variable: '', 
+          operator: 'equals', 
+          value: '' 
+        };
+      case 'forEach':
+        return { 
+          list: '', 
+          actions: [] 
+        };
       default:
         return {};
     }
@@ -150,6 +155,73 @@ export default function WorkflowSidebar({
                 placeholder="Sua mensagem..."
                 className="h-16 text-xs resize-none"
               />
+            </div>
+          </div>
+        );
+      
+      case 'if':
+        const ifParams = action.params as any;
+        return (
+          <div className="space-y-2">
+            <div>
+              <Label className="text-xs">Variável</Label>
+              <Input
+                value={ifParams.variable || ''}
+                onChange={(e) => updateParams({ variable: e.target.value })}
+                placeholder="{{steps.step-1.result.data}}"
+                className="h-8 text-xs"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Operador</Label>
+              <Select
+                value={ifParams.operator || 'equals'}
+                onValueChange={(value) => updateParams({ operator: value })}
+              >
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="equals">Igual a</SelectItem>
+                  <SelectItem value="notEquals">Diferente de</SelectItem>
+                  <SelectItem value="isEmpty">Está vazio</SelectItem>
+                  <SelectItem value="isNotEmpty">Não está vazio</SelectItem>
+                  <SelectItem value="greaterThan">Maior que</SelectItem>
+                  <SelectItem value="lessThan">Menor que</SelectItem>
+                  <SelectItem value="contains">Contém</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {!['isEmpty', 'isNotEmpty'].includes(ifParams.operator || '') && (
+              <div>
+                <Label className="text-xs">Valor</Label>
+                <Input
+                  value={ifParams.value || ''}
+                  onChange={(e) => updateParams({ value: e.target.value })}
+                  placeholder="Valor para comparação"
+                  className="h-8 text-xs"
+                />
+              </div>
+            )}
+          </div>
+        );
+      
+      case 'forEach':
+        const forEachParams = action.params as any;
+        return (
+          <div className="space-y-2">
+            <div>
+              <Label className="text-xs">Lista</Label>
+              <Input
+                value={forEachParams.list || ''}
+                onChange={(e) => updateParams({ list: e.target.value })}
+                placeholder="{{steps.step-1.result.users}}"
+                className="h-8 text-xs"
+              />
+            </div>
+            <div className="text-xs text-gray-600 p-2 bg-gray-50 rounded">
+              As ações aninhadas serão configuradas no editor visual do workflow.
+              Use a variável <code className="bg-gray-200 px-1 rounded">{{item}}</code> para referenciar o item atual do loop.
             </div>
           </div>
         );
