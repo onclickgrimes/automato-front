@@ -13,7 +13,8 @@ import {
   Eye, 
   Search, 
   Clock,
-  Plus
+  Plus,
+  Camera
 } from 'lucide-react';
 
 interface NodesSidebarProps {
@@ -69,6 +70,12 @@ const actionConfig = {
     icon: Clock,
     color: 'bg-gray-500',
     description: 'Aguardar um tempo específico'
+  },
+  uploadPhoto: {
+    label: 'Postar Foto',
+    icon: Camera,
+    color: 'bg-pink-500',
+    description: 'Fazer upload e postar uma foto com legenda'
   }
 };
 

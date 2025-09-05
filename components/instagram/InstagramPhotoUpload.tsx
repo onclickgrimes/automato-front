@@ -42,12 +42,34 @@ export function InstagramPhotoUpload({ className }: InstagramPhotoUploadProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.imagePath) return;
+    if (!selectedFile && !form.imagePath) return;
     
     setIsSubmitting(true);
     try {
+      let publicUrl = form.imagePath;
+      
+      // Se há um arquivo selecionado, fazer upload para o Supabase Storage
+      if (selectedFile) {
+        const formData = new FormData();
+        formData.append('file', selectedFile);
+        formData.append('instanceName', 'workflow'); // Nome da instância para organização
+        
+        const uploadResponse = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData
+        });
+        
+        const uploadResult = await uploadResponse.json();
+        
+        if (!uploadResult.success) {
+          throw new Error(uploadResult.error || 'Erro no upload');
+        }
+        
+        publicUrl = uploadResult.publicUrl;
+      }
+      
       const result = await postPhoto({
-        imagePath: form.imagePath,
+        imagePath: publicUrl,
         caption: form.caption || undefined
       });
       
@@ -62,6 +84,8 @@ export function InstagramPhotoUpload({ className }: InstagramPhotoUploadProps) {
           fileInputRef.current.value = '';
         }
       }
+    } catch (error) {
+      setLastResult(`Erro: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
     } finally {
       setIsSubmitting(false);
     }

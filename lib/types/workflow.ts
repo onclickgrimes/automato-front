@@ -8,6 +8,7 @@ export type WorkflowActionType =
   | 'monitorPosts'
   | 'comment'
   | 'delay'
+  | 'uploadPhoto'
   | 'startMessageProcessor'
   | 'stopMessageProcessor';
 
@@ -53,6 +54,11 @@ export interface DelayParams {
   duration: number; // em milissegundos
 }
 
+export interface UploadPhotoParams {
+  caption: string;
+  imagePath: string; // URL pública da imagem no Supabase Storage
+}
+
 // Interface para uma ação do workflow
 export interface WorkflowAction {
   type: WorkflowActionType;
@@ -60,10 +66,11 @@ export interface WorkflowAction {
     user?: string;
     message?: string;
     postId?: string;
-    postId?: string;
     username?: string;
     comment?: string;
     duration?: number; // em milissegundos
+    caption?: string; // Para uploadPhoto
+    imagePath?: string; // Para uploadPhoto - URL pública da imagem
     includeRequests?: boolean;
     checkInterval?: number;
     maxExecutions?: number;

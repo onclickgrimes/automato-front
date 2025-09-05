@@ -1,12 +1,12 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useFileUpload } from '@/lib/hooks/useFileUpload';
 import { 
   Workflow, 
   WorkflowStep, 
   WorkflowAction, 
-  WorkflowActionType,
-  WorkflowActionParams 
+  WorkflowActionType
 } from '@/lib/types/workflow';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -31,6 +31,7 @@ const actionTypes: { value: WorkflowActionType; label: string }[] = [
   { value: 'followUser', label: 'Seguir Usuário' },
   { value: 'unfollowUser', label: 'Deixar de Seguir' },
   { value: 'comment', label: 'Comentar' },
+  { value: 'uploadPhoto', label: 'Postar Foto' },
   { value: 'monitorMessages', label: 'Monitorar Mensagens' },
   { value: 'monitorPosts', label: 'Monitorar Posts' },
   { value: 'delay', label: 'Aguardar' },
@@ -44,6 +45,8 @@ export default function WorkflowSidebar({
   onWorkflowChange, 
   onStepChange 
 }: WorkflowSidebarProps) {
+  // Hook deve ser chamado no nível superior do componente
+  const { uploading, error, uploadFile, clearError } = useFileUpload();
   const [newActionType, setNewActionType] = useState<WorkflowActionType>('sendDirectMessage');
 
   const updateWorkflow = (updates: Partial<Workflow>) => {
@@ -201,6 +204,106 @@ export default function WorkflowSidebar({
                 placeholder="Seu comentário..."
                 className="h-16 text-xs resize-none"
               />
+            </div>
+          </div>
+        );
+      
+      case 'uploadPhoto':
+        const uploadParams = action.params as any;
+        
+        const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+          const file = e.target.files?.[0];
+          if (!file) return;
+          
+          // Validar tipo de arquivo
+          const allowedTypes = [
+            'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp',
+            'video/mp4', 'video/avi', 'video/mov', 'video/wmv', 'video/webm'
+          ];
+          
+          if (!allowedTypes.includes(file.type)) {
+            alert('Tipo de arquivo não suportado. Use imagens (JPEG, PNG, GIF, WebP) ou vídeos (MP4, AVI, MOV, WMV, WebM)');
+            return;
+          }
+          
+          // Fazer upload do arquivo
+          const instanceName = workflow.name || 'default';
+          const result = await uploadFile(file, instanceName);
+          
+          if (result && result.success) {
+            // Atualizar parâmetros com o resultado do upload
+            updateParams({ 
+              imagePath: result.publicUrl
+            });
+            
+            // Atualizar o step no workflow para refletir a mudança no nó
+            const updatedStep = {
+              ...selectedStep,
+              actions: selectedStep.actions.map((act, idx) => 
+                idx === index ? { ...act, params: { ...act.params, imagePath: result.publicUrl } } : act
+              )
+            };
+            onStepChange(updatedStep);
+          }
+        };
+        
+        return (
+          <div className="space-y-2">
+            <div>
+              <Label className="text-xs">Legenda</Label>
+              <Textarea
+                value={uploadParams.caption || ''}
+                onChange={(e) => updateParams({ caption: e.target.value })}
+                placeholder="Escreva uma legenda para sua foto ou vídeo..."
+                className="h-16 text-xs resize-none"
+              />
+            </div>
+            <div>
+              <Label className="text-xs flex items-center gap-1">
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                Arquivo (Foto ou Vídeo)
+              </Label>
+              <div className="relative">
+                <Input
+                  type="file"
+                  accept="image/*,video/*"
+                  onChange={handleFileUpload}
+                  disabled={uploading}
+                  className="h-8 text-xs pl-8"
+                />
+                <svg className="absolute left-2 top-2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+              </div>
+              <div className="text-xs text-gray-500 mt-1">
+                Aceita imagens (JPEG, PNG, GIF, WebP) e vídeos (MP4, AVI, MOV, WMV, WebM)
+              </div>
+              
+              {uploading && (
+                <div className="text-xs text-blue-600 mt-1">
+                  📤 Fazendo upload do arquivo...
+                </div>
+              )}
+              
+              {error && (
+                <div className="text-xs text-red-600 mt-1">
+                  ❌ Erro: {error}
+                  <button 
+                    onClick={clearError}
+                    className="ml-2 underline hover:no-underline"
+                  >
+                    Limpar
+                  </button>
+                </div>
+              )}
+              
+              {uploadParams.imagePath && !uploading && (
+                <div className="text-xs text-green-600 mt-1">
+                  ✅ Arquivo enviado com sucesso
+                </div>
+              )}
             </div>
           </div>
         );

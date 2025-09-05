@@ -74,7 +74,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     //   );
     // }
 
-    // console.log('workflow', JSON.stringify(workflow.workflow));
+     console.log('workflow', JSON.stringify(workflow.workflow));
     // Fazer chamada para o backend real
     const backendResponse = await fetch(`${process.env.BACKEND_URL || 'http://localhost:8000'}/api/instagram/workflow/execute`, {
       method: 'POST',

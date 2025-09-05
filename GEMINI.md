@@ -232,6 +232,52 @@ interface WorkflowAction {
 - Formulários específicos para cada tipo de ação
 - Validação em tempo real
 - Configurações avançadas do workflow
+- **NOVO**: Sistema de upload de arquivos para ação uploadPhoto
+
+#### Sistema de Upload de Arquivos
+
+**Funcionalidade Upload Photo/Video**
+
+A ação `uploadPhoto` agora suporta upload real de arquivos (fotos e vídeos) com as seguintes características:
+
+**Tipos de arquivo suportados:**
+- **Imagens**: JPEG, JPG, PNG, GIF, WebP
+- **Vídeos**: MP4, AVI, MOV, WMV, WebM
+
+**Estrutura de armazenamento no Supabase Storage:**
+```
+Bucket: "Automato"
+Caminho: {user_id}/{instance_name}/{date}/Automato.{ext}
+```
+
+**Componentes do Sistema de Upload:**
+
+1. **API Route (`/api/upload`)**
+   - Endpoint para upload de arquivos
+   - Validação de tipos de arquivo
+   - Autenticação via Supabase
+   - Organização automática em pastas por usuário/instância/data
+
+2. **Hook useFileUpload (`lib/hooks/useFileUpload.ts`)**
+   - Hook personalizado para gerenciar uploads
+   - Estados de loading e error
+   - Função de upload com tratamento de erros
+   - Interface limpa para uso em componentes
+
+3. **Interface de Upload no WorkflowSidebar**
+   - Input de arquivo com accept para imagens e vídeos
+   - Validação client-side de tipos de arquivo
+   - Feedback visual durante upload (loading, sucesso, erro)
+   - Preview do arquivo selecionado
+
+**Fluxo de Upload:**
+
+1. **Seleção**: Usuário seleciona arquivo via input
+2. **Validação**: Verificação client-side do tipo de arquivo
+3. **Upload**: Envio para API `/api/upload` via FormData
+4. **Armazenamento**: Salvamento no Supabase Storage com estrutura organizada
+5. **Resposta**: Retorno do caminho e URL pública do arquivo
+6. **Atualização**: Parâmetros da ação são atualizados com informações do arquivo
 
 #### Persistência
 - Exportar workflow como JSON

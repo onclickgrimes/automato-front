@@ -28,6 +28,7 @@ const actionColors: Record<string, string> = {
   monitorMessages: 'bg-yellow-100 text-yellow-800 border-yellow-200',
   monitorPosts: 'bg-indigo-100 text-indigo-800 border-indigo-200',
   delay: 'bg-gray-100 text-gray-800 border-gray-200',
+  uploadPhoto: 'bg-pink-100 text-pink-800 border-pink-200',
 };
 
 // Labels amigáveis para os tipos de ação
@@ -40,6 +41,7 @@ const actionLabels: Record<string, string> = {
   monitorMessages: 'Monitorar Mensagens',
   monitorPosts: 'Monitorar Posts',
   delay: 'Aguardar',
+  uploadPhoto: 'Upload de Foto',
 };
 
 export default function StepNode({ data, selected }: NodeProps<StepNodeData>) {
@@ -152,7 +154,33 @@ export default function StepNode({ data, selected }: NodeProps<StepNodeData>) {
                     <div className="font-medium">
                       {actionLabels[action.type] || action.type}
                     </div>
-                    {action.description && (
+                    
+                    {/* Renderização especial para uploadPhoto */}
+                    {action.type === 'uploadPhoto' && action.params.imagePath && (
+                      <div className="mt-1 space-y-1">
+                        <div className="flex items-center gap-2">
+                          <img 
+                            src={action.params.imagePath} 
+                            alt="Preview" 
+                            className="w-8 h-8 object-cover rounded border"
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement;
+                              target.style.display = 'none';
+                            }}
+                          />
+                          <div className="flex-1 min-w-0">
+                            {action.params.caption && (
+                              <div className="text-xs opacity-75 truncate">
+                                {action.params.caption}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Renderização padrão para outras ações */}
+                    {action.type !== 'uploadPhoto' && action.description && (
                       <div className="text-xs opacity-75 truncate">
                         {action.description}
                       </div>
