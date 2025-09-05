@@ -109,8 +109,8 @@ export default function WorkflowSidebar({
           hashtags: [], 
           usernames: [],
           checkInterval: 30000, // 30 segundos
-          maxExecutions: 10,
-          maxPostsPerUser: 5
+          maxExecutions: 1,
+          maxPostsPerUser: 6
         };
       case 'delay':
         return { duration: 60000 }; // em milissegundos
@@ -331,17 +331,6 @@ export default function WorkflowSidebar({
               />
             </div>
             <div>
-              <Label className="text-xs">Máximo de Posts</Label>
-              <Input
-                type="number"
-                value={monitorPostsParams.maxPosts || ''}
-                onChange={(e) => updateParams({ maxPosts: parseInt(e.target.value) || undefined })}
-                placeholder="10"
-                className="h-8 text-xs"
-                min="1"
-              />
-            </div>
-            <div>
               <Label className="text-xs">Intervalo de Verificação (ms)</Label>
               <Input
                 type="number"
@@ -356,7 +345,7 @@ export default function WorkflowSidebar({
               <Label className="text-xs">Máximo de Execuções</Label>
               <Input
                 type="number"
-                value={monitorPostsParams.maxExecutions || 10}
+                value={monitorPostsParams.maxExecutions || 1}
                 onChange={(e) => updateParams({ maxExecutions: parseInt(e.target.value) || 10 })}
                 placeholder="10"
                 className="h-8 text-xs"

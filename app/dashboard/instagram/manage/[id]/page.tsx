@@ -746,14 +746,14 @@ export default function InstagramControlPanel() {
               {sseError && (
                 <Alert>
                   <AlertDescription className="text-sm">
-                    Erro na conexão SSE: {sseError}
+                    Erro na conexão: {sseError}
                   </AlertDescription>
                 </Alert>
               )}
               <div className="bg-gray-900 rounded-lg p-4 h-80 overflow-y-auto font-mono text-sm">
                 {logs.length === 0 ? (
                   <div className="text-gray-500 text-center py-8">
-                    Nenhum log ainda. As ações aparecerão aqui em tempo real via SSE...
+                    Nenhum log ainda. As ações aparecerão aqui em tempo real...
                   </div>
                 ) : (
                   <div className="space-y-1">
