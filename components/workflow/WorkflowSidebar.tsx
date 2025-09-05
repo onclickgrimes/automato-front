@@ -656,15 +656,6 @@ export default function WorkflowSidebar({
           </div>
           
           <div>
-            <Label>Condição (opcional)</Label>
-            <Input
-              value={selectedStep.condition || ''}
-              onChange={(e) => updateStep({ condition: e.target.value })}
-              placeholder="ex: success == true"
-            />
-          </div>
-          
-          <div>
             <Label className="text-sm font-medium">Retry (opcional)</Label>
             <div className="mt-2 grid grid-cols-2 gap-2">
               <div>

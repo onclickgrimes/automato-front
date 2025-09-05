@@ -117,10 +117,6 @@ export interface WorkflowStep {
   id: string;
   name: string;
   actions: WorkflowAction[];
-  condition?: {
-    type: 'success' | 'failure' | 'always';
-    previousStep?: string;
-  };
   retry?: {
     maxAttempts: number;
     delayMs: number;

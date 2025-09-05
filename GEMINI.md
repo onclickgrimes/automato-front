@@ -206,7 +206,6 @@ interface WorkflowStep {
   id: string;
   name: string;
   actions: WorkflowAction[];
-  condition?: string;
   retry?: {
     maxAttempts: number;
     delaySeconds: number;

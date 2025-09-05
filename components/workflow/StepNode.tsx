@@ -93,11 +93,6 @@ export default function StepNode({ data, selected }: NodeProps<StepNodeData>) {
               </Button>
             </div>
           </div>
-          {step.condition && (
-            <Badge variant="outline" className="text-xs w-fit">
-              Condição: {step.condition}
-            </Badge>
-          )}
         </CardHeader>
         
         <CardContent className="pt-0">
