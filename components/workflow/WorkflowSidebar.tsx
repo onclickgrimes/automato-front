@@ -221,7 +221,7 @@ export default function WorkflowSidebar({
             </div>
             <div className="text-xs text-gray-600 p-2 bg-gray-50 rounded">
               As ações aninhadas serão configuradas no editor visual do workflow.
-              Use a variável <code className="bg-gray-200 px-1 rounded">{{item}}</code> para referenciar o item atual do loop.
+              Use a variável <code className="bg-gray-200 px-1 rounded">{'{item}'}</code> para referenciar o item atual do loop.
             </div>
           </div>
         );
