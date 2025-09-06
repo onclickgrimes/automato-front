@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useFileUpload } from '@/lib/hooks/useFileUpload';
 import { 
   Workflow, 
@@ -16,8 +16,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
-import { Trash2, Plus, ArrowDown } from 'lucide-react';
+import { Trash2, Plus, ArrowDown, Variable } from 'lucide-react';
 import { actionConfig } from '@/lib/config/workflow-actions';
+import VariablePicker from './VariablePicker';
 
 interface WorkflowSidebarProps {
   workflow: Workflow;
@@ -39,9 +40,92 @@ export default function WorkflowSidebar({
   onWorkflowChange, 
   onStepChange 
 }: WorkflowSidebarProps) {
+  const [isVariablePickerOpen, setIsVariablePickerOpen] = useState(false);
   // Hook deve ser chamado no nível superior do componente
   const { uploading, error, uploadFile, clearError } = useFileUpload();
   const [newActionType, setNewActionType] = useState<WorkflowActionType>('sendDirectMessage');
+
+  // Função para detectar o tipo de dados baseado na variável selecionada
+  const getDataTypeFromVariable = (variable: string): 'users' | 'posts' | 'unknown' => {
+    if (!variable) return 'unknown';
+    
+    // Detectar baseado no nome da variável
+    const lowerVar = variable.toLowerCase();
+    if (lowerVar.includes('users') || lowerVar.includes('followers') || lowerVar.includes('following')) {
+      return 'users';
+    }
+    if (lowerVar.includes('posts') || lowerVar.includes('newposts') || lowerVar.includes('media')) {
+      return 'posts';
+    }
+    
+    return 'unknown';
+  };
+
+  // Função para filtrar ações compatíveis com o tipo de dados
+  const getCompatibleActions = (dataType: 'users' | 'posts' | 'unknown'): WorkflowActionType[] => {
+    switch (dataType) {
+      case 'users':
+        return ['followUser', 'unfollowUser', 'sendDirectMessage', 'delay'];
+      case 'posts':
+        return ['likePost', 'comment', 'delay'];
+      case 'unknown':
+      default:
+        return ['followUser', 'unfollowUser', 'sendDirectMessage', 'likePost', 'comment', 'delay'];
+    }
+  };
+
+  // Auto-preencher campos que usam {{item}} nas ações aninhadas do forEach
+  useEffect(() => {
+    if (!selectedStep) return;
+    
+    const forEachActions = selectedStep.actions.filter(action => action.type === 'forEach');
+    let hasChanges = false;
+    
+    forEachActions.forEach((forEachAction, actionIndex) => {
+      const forEachParams = forEachAction.params as any;
+      const nestedActions = forEachParams.actions || [];
+      
+      nestedActions.forEach((nestedAction: any, nestedIndex: number) => {
+        const autoFillParams: any = {};
+        
+        switch (nestedAction.type) {
+          case 'followUser':
+          case 'unfollowUser':
+            if (!nestedAction.params.username) {
+              autoFillParams.username = '{{item}}';
+            }
+            break;
+          case 'sendDirectMessage':
+            if (!nestedAction.params.user) {
+              autoFillParams.user = '{{item}}';
+            }
+            break;
+          case 'likePost':
+          case 'comment':
+            if (!nestedAction.params.postId) {
+              autoFillParams.postId = '{{item}}';
+            }
+            break;
+        }
+        
+        if (Object.keys(autoFillParams).length > 0) {
+          const updatedActions = [...selectedStep.actions];
+          const currentForEachAction = updatedActions[actionIndex];
+          const currentNestedActions = [...(currentForEachAction.params as any).actions];
+          currentNestedActions[nestedIndex] = {
+            ...currentNestedActions[nestedIndex],
+            params: { ...currentNestedActions[nestedIndex].params, ...autoFillParams }
+          };
+          updatedActions[actionIndex] = {
+            ...currentForEachAction,
+            params: { ...currentForEachAction.params, actions: currentNestedActions }
+          };
+          onStepChange({ ...selectedStep, actions: updatedActions });
+          hasChanges = true;
+        }
+      });
+    });
+  }, [selectedStep?.actions, selectedStep?.id]);
 
   const updateWorkflow = (updates: Partial<Workflow>) => {
     onWorkflowChange({ ...workflow, ...updates });
@@ -161,17 +245,44 @@ export default function WorkflowSidebar({
       
       case 'if':
         const ifParams = action.params as any;
+        
+        // Obter steps anteriores ao step atual
+        const currentStepIndex = workflow.steps.findIndex(s => s.id === selectedStep?.id);
+        const previousSteps = currentStepIndex > 0 ? workflow.steps.slice(0, currentStepIndex) : [];
+        
         return (
           <div className="space-y-2">
             <div>
               <Label className="text-xs">Variável</Label>
-              <Input
-                value={ifParams.variable || ''}
-                onChange={(e) => updateParams({ variable: e.target.value })}
-                placeholder="{{steps.step-1.result.data}}"
-                className="h-8 text-xs"
-              />
+              <div className="flex gap-2">
+                <Input
+                  value={ifParams.variable || ''}
+                  onChange={(e) => updateParams({ variable: e.target.value })}
+                  placeholder="{{steps.step-1.result.data}}"
+                  className="h-8 text-xs flex-1"
+                  readOnly
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsVariablePickerOpen(true)}
+                  className="h-8 px-3"
+                >
+                  <Variable className="w-3 h-3 mr-1" />
+                  Selecionar
+                </Button>
+              </div>
             </div>
+            
+            <VariablePicker
+              isOpen={isVariablePickerOpen}
+              setIsOpen={setIsVariablePickerOpen}
+              steps={previousSteps}
+              onVariableSelect={(variable) => {
+                updateParams({ variable });
+              }}
+            />
             <div>
               <Label className="text-xs">Operador</Label>
               <Select
@@ -208,20 +319,231 @@ export default function WorkflowSidebar({
       
       case 'forEach':
         const forEachParams = action.params as any;
+        
+        // Obter steps anteriores ao step atual
+        const currentStepIndexForEach = workflow.steps.findIndex(s => s.id === selectedStep?.id);
+        const previousStepsForEach = currentStepIndexForEach > 0 ? workflow.steps.slice(0, currentStepIndexForEach) : [];
+        
         return (
           <div className="space-y-2">
             <div>
               <Label className="text-xs">Lista</Label>
-              <Input
-                value={forEachParams.list || ''}
-                onChange={(e) => updateParams({ list: e.target.value })}
-                placeholder="{{steps.step-1.result.users}}"
-                className="h-8 text-xs"
-              />
+              <div className="flex gap-2">
+                <Input
+                  value={forEachParams.list || ''}
+                  onChange={(e) => updateParams({ list: e.target.value })}
+                  placeholder="{{steps.step-1.result.users}}"
+                  className="h-8 text-xs flex-1"
+                  readOnly
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsVariablePickerOpen(true)}
+                  className="h-8 px-3"
+                >
+                  <Variable className="w-3 h-3 mr-1" />
+                  Selecionar
+                </Button>
+              </div>
             </div>
-            <div className="text-xs text-gray-600 p-2 bg-gray-50 rounded">
-              As ações aninhadas serão configuradas no editor visual do workflow.
-              Use a variável <code className="bg-gray-200 px-1 rounded">{'{item}'}</code> para referenciar o item atual do loop.
+            
+
+            
+            <VariablePicker
+              isOpen={isVariablePickerOpen}
+              setIsOpen={setIsVariablePickerOpen}
+              steps={previousStepsForEach}
+              onVariableSelect={(variable) => {
+                updateParams({ list: variable });
+              }}
+            />
+            
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Ações do Loop</Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const currentActions = forEachParams.actions || [];
+                    const dataType = getDataTypeFromVariable(forEachParams.list || '');
+                    const compatibleActions = getCompatibleActions(dataType);
+                    const defaultActionType = compatibleActions[0] || 'delay';
+                    
+                    updateParams({ 
+                      actions: [...currentActions, {
+                        type: defaultActionType,
+                        params: {}
+                      }]
+                    });
+                  }}
+                  className="h-6 px-2 text-xs"
+                >
+                  <Plus className="w-3 h-3 mr-1" />
+                  Adicionar Ação
+                </Button>
+              </div>
+              
+              {(forEachParams.actions || []).map((nestedAction, nestedIndex) => (
+                <Card key={nestedIndex} className="border border-gray-200">
+                  <CardHeader className="pb-2">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-xs font-medium">
+                        Ação {nestedIndex + 1}: {actionConfig[nestedAction.type]?.label || nestedAction.type}
+                      </CardTitle>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          const currentActions = forEachParams.actions || [];
+                          const newActions = currentActions.filter((_, i) => i !== nestedIndex);
+                          updateParams({ actions: newActions });
+                        }}
+                        className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="pt-0 space-y-2">
+                    <div>
+                      <Label className="text-xs">Tipo de Ação</Label>
+                      <Select
+                        value={nestedAction.type}
+                        onValueChange={(value: WorkflowActionType) => {
+                          const currentActions = forEachParams.actions || [];
+                          const newActions = [...currentActions];
+                          newActions[nestedIndex] = {
+                            type: value,
+                            params: {}
+                          };
+                          updateParams({ actions: newActions });
+                        }}
+                      >
+                        <SelectTrigger className="h-8 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {(() => {
+                            const dataType = getDataTypeFromVariable(forEachParams.list || '');
+                            const compatibleActions = getCompatibleActions(dataType);
+                            return actionTypes
+                              .filter(at => compatibleActions.includes(at.value))
+                              .map((actionType) => (
+                                <SelectItem key={actionType.value} value={actionType.value}>
+                                  {actionType.label}
+                                </SelectItem>
+                              ));
+                          })()}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    {/* Renderizar parâmetros específicos da ação aninhada */}
+                    {(() => {
+                      const updateNestedParams = (newParams: any) => {
+                        const currentActions = forEachParams.actions || [];
+                        const newActions = [...currentActions];
+                        newActions[nestedIndex] = {
+                          ...newActions[nestedIndex],
+                          params: { ...newActions[nestedIndex].params, ...newParams }
+                        };
+                        updateParams({ actions: newActions });
+                      };
+                      
+                      // A lógica de auto-preenchimento foi movida para o useEffect no nível superior
+                      
+                      switch (nestedAction.type) {
+                        case 'followUser':
+                        case 'unfollowUser':
+                          return (
+                            <div className="text-xs text-gray-600 p-2 bg-green-50 rounded border border-green-200">
+                              ✓ Usuário será obtido automaticamente do item do loop
+                            </div>
+                          );
+                        
+                        case 'delay':
+                          return (
+                            <div>
+                              <Label className="text-xs">Duração (ms)</Label>
+                              <Input
+                                type="number"
+                                value={nestedAction.params.duration || ''}
+                                onChange={(e) => updateNestedParams({ duration: parseInt(e.target.value) || 0 })}
+                                placeholder="5000"
+                                className="h-8 text-xs"
+                              />
+                            </div>
+                          );
+                        
+                        case 'sendDirectMessage':
+                          return (
+                            <div className="space-y-2">
+                              <div className="text-xs text-gray-600 p-2 bg-green-50 rounded border border-green-200">
+                                ✓ Usuário será obtido automaticamente do item do loop
+                              </div>
+                              <div>
+                                <Label className="text-xs">Mensagem</Label>
+                                <Textarea
+                                  value={nestedAction.params.message || ''}
+                                  onChange={(e) => updateNestedParams({ message: e.target.value })}
+                                  placeholder="Olá! Como você está?"
+                                  className="text-xs min-h-[60px]"
+                                />
+                              </div>
+                            </div>
+                          );
+                        
+                        case 'likePost':
+                          return (
+                            <div className="text-xs text-gray-600 p-2 bg-green-50 rounded border border-green-200">
+                              ✓ URL do post será obtida automaticamente do item do loop
+                            </div>
+                          );
+                        
+                        case 'comment':
+                          return (
+                            <div className="space-y-2">
+                              <div className="text-xs text-gray-600 p-2 bg-green-50 rounded border border-green-200">
+                                ✓ URL do post será obtida automaticamente do item do loop
+                              </div>
+                              <div>
+                                <Label className="text-xs">Comentário</Label>
+                                <Textarea
+                                  value={nestedAction.params.comment || ''}
+                                  onChange={(e) => updateNestedParams({ comment: e.target.value })}
+                                  placeholder="Ótimo post!"
+                                  className="text-xs min-h-[60px]"
+                                />
+                              </div>
+                            </div>
+                          );
+                        
+                        default:
+                          return (
+                            <div className="text-xs text-gray-500 p-2 bg-gray-50 rounded">
+                              Configuração não disponível para este tipo de ação.
+                            </div>
+                          );
+                      }
+                    })()}
+                  </CardContent>
+                </Card>
+              ))}
+              
+              {(!forEachParams.actions || forEachParams.actions.length === 0) && (
+                <div className="text-xs text-gray-500 p-3 bg-gray-50 rounded border-2 border-dashed border-gray-200 text-center">
+                  Nenhuma ação configurada. Clique em "Adicionar Ação" para começar.
+                </div>
+              )}
+              
+              <div className="text-xs text-gray-600 p-2 bg-blue-50 rounded border border-blue-200">
+                💡 Use a variável <code className="bg-blue-100 px-1 rounded">{`{{item}}`}</code> para referenciar o item atual do loop nas ações acima.
+              </div>
             </div>
           </div>
         );
