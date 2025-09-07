@@ -6,6 +6,7 @@ export interface InstagramPost {
   url: string;
   post_id: string;
   username: string;
+  caption?: string | null;
   likes: number;
   comments: number;
   post_date?: string | null;
@@ -25,6 +26,7 @@ export interface InstagramPostFromBackend {
   post_date?: string;
   date?: string; // Campo alternativo para data
   liked_by_users?: string[];
+  caption?: string;
   followedLikers?: boolean;
 }
 
@@ -40,6 +42,7 @@ export interface CreateInstagramPostData {
   url: string;
   post_id: string;
   username: string;
+  caption?: string;
   likes?: number;
   comments?: number;
   post_date?: string | null;
@@ -50,6 +53,7 @@ export interface CreateInstagramPostData {
 // Dados para atualizar um post
 export interface UpdateInstagramPostData {
   url?: string;
+  caption?: string;
   likes?: number;
   comments?: number;
   post_date?: string | null;

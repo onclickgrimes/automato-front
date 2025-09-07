@@ -322,7 +322,7 @@ Sistema para receber e armazenar posts do Instagram coletados pelo backend.
 #### 1. Migração do Banco (`migrations/create_instagram_posts_table.sql`)
 
 Tabela `instagram_posts` com:
-- **Campos principais**: `id`, `user_id`, `url`, `post_id`, `username`
+- **Campos principais**: `id`, `user_id`, `url`, `post_id`, `username`, `caption`
 - **Métricas**: `likes`, `comments`, `post_date`
 - **Funcionalidades**: `liked_by_users` (jsonb), `followed_likers` (boolean)
 - **Auditoria**: `created_at`, `updated_at`
@@ -457,3 +457,18 @@ const response = await fetch('http://localhost:3000/api/instagram-accounts/posts
 - Validação rigorosa do `user_id`
 - Fallback para autenticação normal de usuários
 - Logs de acesso para auditoria
+
+### Migrações Aplicadas
+
+#### 2025-01-02: Adição da coluna caption
+**Arquivo**: `migrations/add_caption_to_instagram_posts.sql`
+
+**Descrição**: Adiciona a coluna `caption` à tabela `instagram_posts` para armazenar o texto/legenda dos posts do Instagram.
+
+**Alterações**:
+- Adicionada coluna `caption` do tipo `text` (opcional)
+- Criado índice de busca textual em português para a coluna caption
+- Atualizada interface TypeScript `InstagramPost` para incluir o campo caption
+- Corrigida função `transformPostForDatabase` para mapear o campo caption do payload
+
+**Impacto**: Resolve o problema onde o campo caption estava sendo enviado no payload mas não era salvo no banco de dados.

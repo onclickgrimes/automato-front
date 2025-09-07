@@ -62,6 +62,7 @@ function transformPostForDatabase(post: any, userId: string): CreateInstagramPos
     url: post.url,
     post_id: extractPostId(post.url, post.post_id),
     username: post.username,
+    caption: post.caption || null,
     likes: post.likes || 0,
     comments: post.comments || 0,
     post_date: post.post_date || post.date || null,
