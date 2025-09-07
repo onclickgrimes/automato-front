@@ -49,6 +49,8 @@ export interface MonitorPostsParams {
   checkInterval?: number; // Intervalo de verificação entre um ciclo e outro
   maxExecutions?: number; // Número de loops que monitorar posts deve fazer
   maxPostsPerUser?: number; // Número de primeiros posts que o loop deve extrair
+  maxPostAge?: number; // Idade máxima do post (baseado no campo postDate)
+  maxPostAgeUnit?: 'minutes' | 'hours'; // Unidade de tempo para maxPostAge
 }
 
 export interface DelayParams {

@@ -16,10 +16,13 @@ import { ChevronDown, ChevronRight, Variable, Database } from 'lucide-react';
 import { getActionConfig } from '@/lib/config/workflow-actions';
 
 interface VariablePickerProps {
-  isOpen: boolean;
-  setIsOpen: (open: boolean) => void;
-  steps: WorkflowStep[];
+  isOpen?: boolean;
+  setIsOpen?: (open: boolean) => void;
+  steps?: WorkflowStep[];
+  workflow?: any;
   onVariableSelect: (variable: string) => void;
+  filterVariables?: (variables: string[]) => string[];
+  children?: React.ReactNode;
 }
 
 // Mapeamento estático das saídas conhecidas de cada tipo de ação
@@ -27,7 +30,17 @@ const actionOutputs: Record<WorkflowActionType, any> = {
   monitorPosts: {
     result: {
       allLikers: [],
-      newPosts: [],
+      posts: [
+        {
+          id: 'post_123456789',
+          url: 'https://instagram.com/p/example',
+          caption: 'Exemplo de legenda do post',
+          likes: 150,
+          comments: 25,
+          author: 'usuario_exemplo',
+          createdAt: '2024-01-01T00:00:00Z'
+        }
+      ],
       executionCount: 0,
       lastPostId: '',
       totalLikes: 0
@@ -203,9 +216,25 @@ function renderObjectTree(
   );
 }
 
-export default function VariablePicker({ isOpen, setIsOpen, steps, onVariableSelect }: VariablePickerProps) {
+export default function VariablePicker({ 
+  isOpen, 
+  setIsOpen, 
+  steps, 
+  workflow, 
+  onVariableSelect, 
+  filterVariables,
+  children 
+}: VariablePickerProps) {
   const [expandedSteps, setExpandedSteps] = useState<Set<string>>(new Set());
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set());
+  const [internalIsOpen, setInternalIsOpen] = useState(false);
+  
+  // Se usado como botão (com children), gerencia seu próprio estado
+  const modalIsOpen = isOpen !== undefined ? isOpen : internalIsOpen;
+  const setModalIsOpen = setIsOpen || setInternalIsOpen;
+  
+  // Determina os steps a usar (de workflow.steps ou steps direto)
+  const workflowSteps = steps || (workflow?.steps || []);
 
   const toggleStepExpanded = (stepId: string) => {
     const newExpanded = new Set(expandedSteps);
@@ -233,8 +262,48 @@ export default function VariablePicker({ isOpen, setIsOpen, steps, onVariableSel
     setIsOpen(false);
   };
 
+  // Se children são fornecidos, renderiza como botão
+  if (children) {
+    return (
+      <>
+        <div onClick={() => setModalIsOpen(true)}>
+          {children}
+        </div>
+        <Dialog open={modalIsOpen} onOpenChange={setModalIsOpen}>
+          <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Database className="w-5 h-5" />
+                Seletor de Variáveis
+              </DialogTitle>
+              <DialogDescription>
+                Selecione uma variável dos steps anteriores.
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="flex-1 overflow-y-auto">
+              {!workflowSteps || workflowSteps.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  <Database className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                  <p>Nenhum step anterior disponível</p>
+                  <p className="text-sm">Adicione steps antes desta condição para usar suas variáveis.</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {/* Implementar lista simplificada de variáveis aqui */}
+                  <p className="text-sm text-gray-600">Funcionalidade em desenvolvimento...</p>
+                </div>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
+      </>
+    );
+  }
+  
+  // Renderização original como modal
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+    <Dialog open={modalIsOpen} onOpenChange={setModalIsOpen}>
       <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -247,7 +316,7 @@ export default function VariablePicker({ isOpen, setIsOpen, steps, onVariableSel
         </DialogHeader>
         
         <div className="flex-1 overflow-y-auto">
-          {steps.length === 0 ? (
+          {!workflowSteps || workflowSteps.length === 0 ? (
             <div className="text-center py-8 text-gray-500">
               <Database className="w-12 h-12 mx-auto mb-4 text-gray-300" />
               <p>Nenhum step anterior disponível</p>
@@ -255,7 +324,7 @@ export default function VariablePicker({ isOpen, setIsOpen, steps, onVariableSel
             </div>
           ) : (
             <div className="space-y-4">
-              {steps.map((step) => {
+              {workflowSteps.map((step) => {
                 const isExpanded = expandedSteps.has(step.id);
                 const actionConfig = getActionConfig(step.actions[0]?.type);
                 const outputs = step.actions[0] ? actionOutputs[step.actions[0].type] : {};

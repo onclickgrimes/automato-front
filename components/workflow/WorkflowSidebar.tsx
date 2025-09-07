@@ -54,7 +54,7 @@ export default function WorkflowSidebar({
     if (lowerVar.includes('users') || lowerVar.includes('followers') || lowerVar.includes('following')) {
       return 'users';
     }
-    if (lowerVar.includes('posts') || lowerVar.includes('newposts') || lowerVar.includes('media')) {
+    if (lowerVar.includes('posts') || lowerVar.includes('posts') || lowerVar.includes('media')) {
       return 'posts';
     }
     
@@ -72,6 +72,48 @@ export default function WorkflowSidebar({
       default:
         return ['followUser', 'unfollowUser', 'sendDirectMessage', 'likePost', 'comment', 'delay'];
     }
+  };
+
+  // Função para validar se uma variável é compatível com um campo específico
+  const isVariableCompatible = (variable: string, fieldType: 'user' | 'post'): boolean => {
+    if (!variable) return true; // Permite valores vazios
+    
+    // Se não é uma variável (não contém {{}}), permite
+    if (!variable.includes('{{') || !variable.includes('}}')) return true;
+    
+    const dataType = getDataTypeFromVariable(variable);
+    
+    switch (fieldType) {
+      case 'user':
+        return dataType === 'users' || dataType === 'unknown';
+      case 'post':
+        return dataType === 'posts' || dataType === 'unknown';
+      default:
+        return true;
+    }
+  };
+
+  // Função para obter variáveis compatíveis com um tipo específico
+  const getCompatibleVariables = (fieldType: 'user' | 'post'): string[] => {
+    const allVariables = workflow.steps.flatMap(step => 
+      step.actions.flatMap(action => {
+        const variables: string[] = [];
+        
+        // Extrair variáveis de diferentes tipos de ação
+        if (action.type === 'getFollowers' || action.type === 'getFollowing') {
+          const params = action.params as any;
+          if (params.outputVariable) variables.push(params.outputVariable);
+        }
+        if (action.type === 'monitorPosts') {
+          const params = action.params as any;
+          if (params.outputVariable) variables.push(params.outputVariable);
+        }
+        
+        return variables;
+      })
+    );
+    
+    return allVariables.filter(variable => isVariableCompatible(`{{${variable}}}`, fieldType));
   };
 
   // Auto-preencher campos que usam {{item}} nas ações aninhadas do forEach
@@ -103,7 +145,7 @@ export default function WorkflowSidebar({
           case 'likePost':
           case 'comment':
             if (!nestedAction.params.postId) {
-              autoFillParams.postId = '{{item}}';
+              autoFillParams.postId = '{{item.id}}';
             }
             break;
         }
@@ -188,7 +230,9 @@ export default function WorkflowSidebar({
           usernames: [],
           checkInterval: 30000, // 30 segundos
           maxExecutions: 1,
-          maxPostsPerUser: 6
+          maxPostsPerUser: 6,
+          maxPostAge: 24,
+          maxPostAgeUnit: 'hours'
         };
       case 'delay':
         return { duration: 60000 }; // em milissegundos
@@ -220,16 +264,39 @@ export default function WorkflowSidebar({
     switch (action.type) {
       case 'sendDirectMessage':
         const dmParams = action.params as any;
+        const isDmUserVariableValid = isVariableCompatible(dmParams.user || '', 'user');
+        
         return (
           <div className="space-y-2">
             <div>
-              <Label className="text-xs">Usuário</Label>
-              <Input
-                value={dmParams.user || ''}
-                onChange={(e) => updateParams({ user: e.target.value })}
-                placeholder="@usuario"
-                className="h-8 text-xs"
-              />
+              <Label className="text-xs flex items-center gap-2">
+                Usuário
+                {!isDmUserVariableValid && (
+                  <span className="text-red-500 text-xs">⚠️ Variável incompatível</span>
+                )}
+              </Label>
+              <div className="flex gap-1">
+                <Input
+                  value={dmParams.user || ''}
+                  onChange={(e) => updateParams({ user: e.target.value })}
+                  placeholder="@usuario"
+                  className={`h-8 text-xs flex-1 ${!isDmUserVariableValid ? 'border-red-300' : ''}`}
+                />
+                <VariablePicker
+                  workflow={workflow}
+                  onVariableSelect={(variable) => updateParams({ user: `{{${variable}}}` })}
+                  filterVariables={(variables) => variables.filter(v => isVariableCompatible(`{{${v}}}`, 'user'))}
+                >
+                  <Button variant="outline" size="sm" className="h-8 px-2">
+                    <Variable className="h-3 w-3" />
+                  </Button>
+                </VariablePicker>
+              </div>
+              {!isDmUserVariableValid && (
+                <div className="text-xs text-red-600 mt-1">
+                  Esta variável contém dados de posts, mas este campo espera nomes de usuários.
+                </div>
+              )}
             </div>
             <div>
               <Label className="text-xs">Mensagem</Label>
@@ -550,45 +617,114 @@ export default function WorkflowSidebar({
       
       case 'likePost':
         const likeParams = action.params as any;
+        const isPostVariableValid = isVariableCompatible(likeParams.postId || '', 'post');
+        
         return (
           <div>
-            <Label className="text-xs">URL do Post</Label>
-            <Input
-              value={likeParams.postId || ''}
-              onChange={(e) => updateParams({ postId: e.target.value })}
-              placeholder="https://instagram.com/p/..."
-              className="h-8 text-xs"
-            />
+            <Label className="text-xs flex items-center gap-2">
+              URL do Post
+              {!isPostVariableValid && (
+                <span className="text-red-500 text-xs">⚠️ Variável incompatível</span>
+              )}
+            </Label>
+            <div className="flex gap-1">
+              <Input
+                value={likeParams.postId || ''}
+                onChange={(e) => updateParams({ postId: e.target.value })}
+                placeholder="https://instagram.com/p/..."
+                className={`h-8 text-xs flex-1 ${!isPostVariableValid ? 'border-red-300' : ''}`}
+              />
+              <VariablePicker
+                workflow={workflow}
+                onVariableSelect={(variable) => updateParams({ postId: `{{${variable}}}` })}
+                filterVariables={(variables) => variables.filter(v => isVariableCompatible(`{{${v}}}`, 'post'))}
+              >
+                <Button variant="outline" size="sm" className="h-8 px-2">
+                  <Variable className="h-3 w-3" />
+                </Button>
+              </VariablePicker>
+            </div>
+            {!isPostVariableValid && (
+              <div className="text-xs text-red-600 mt-1">
+                Esta variável contém dados de usuários, mas este campo espera URLs de posts.
+              </div>
+            )}
           </div>
         );
       
       case 'followUser':
       case 'unfollowUser':
         const userParams = action.params as any;
+        const isUserVariableValid = isVariableCompatible(userParams.username || '', 'user');
+        
         return (
           <div>
-            <Label className="text-xs">Usuário</Label>
-            <Input
-              value={userParams.username || ''}
-              onChange={(e) => updateParams({ username: e.target.value })}
-              placeholder="@usuario"
-              className="h-8 text-xs"
-            />
+            <Label className="text-xs flex items-center gap-2">
+              Usuário
+              {!isUserVariableValid && (
+                <span className="text-red-500 text-xs">⚠️ Variável incompatível</span>
+              )}
+            </Label>
+            <div className="flex gap-1">
+              <Input
+                value={userParams.username || ''}
+                onChange={(e) => updateParams({ username: e.target.value })}
+                placeholder="@usuario"
+                className={`h-8 text-xs flex-1 ${!isUserVariableValid ? 'border-red-300' : ''}`}
+              />
+              <VariablePicker
+                workflow={workflow}
+                onVariableSelect={(variable) => updateParams({ username: `{{${variable}}}` })}
+                filterVariables={(variables) => variables.filter(v => isVariableCompatible(`{{${v}}}`, 'user'))}
+              >
+                <Button variant="outline" size="sm" className="h-8 px-2">
+                  <Variable className="h-3 w-3" />
+                </Button>
+              </VariablePicker>
+            </div>
+            {!isUserVariableValid && (
+              <div className="text-xs text-red-600 mt-1">
+                Esta variável contém dados de posts, mas este campo espera nomes de usuários.
+              </div>
+            )}
           </div>
         );
       
       case 'comment':
         const commentParams = action.params as any;
+        const isCommentPostVariableValid = isVariableCompatible(commentParams.postId || '', 'post');
+        
         return (
           <div className="space-y-2">
             <div>
-              <Label className="text-xs">URL do Post</Label>
-              <Input
-                value={commentParams.postId || ''}
-                onChange={(e) => updateParams({ postId: e.target.value })}
-                placeholder="https://instagram.com/p/..."
-                className="h-8 text-xs"
-              />
+              <Label className="text-xs flex items-center gap-2">
+                URL do Post
+                {!isCommentPostVariableValid && (
+                  <span className="text-red-500 text-xs">⚠️ Variável incompatível</span>
+                )}
+              </Label>
+              <div className="flex gap-1">
+                <Input
+                  value={commentParams.postId || ''}
+                  onChange={(e) => updateParams({ postId: e.target.value })}
+                  placeholder="https://instagram.com/p/..."
+                  className={`h-8 text-xs flex-1 ${!isCommentPostVariableValid ? 'border-red-300' : ''}`}
+                />
+                <VariablePicker
+                  workflow={workflow}
+                  onVariableSelect={(variable) => updateParams({ postId: `{{${variable}}}` })}
+                  filterVariables={(variables) => variables.filter(v => isVariableCompatible(`{{${v}}}`, 'post'))}
+                >
+                  <Button variant="outline" size="sm" className="h-8 px-2">
+                    <Variable className="h-3 w-3" />
+                  </Button>
+                </VariablePicker>
+              </div>
+              {!isCommentPostVariableValid && (
+                <div className="text-xs text-red-600 mt-1">
+                  Esta variável contém dados de usuários, mas este campo espera URLs de posts.
+                </div>
+              )}
             </div>
             <div>
               <Label className="text-xs">Comentário</Label>
@@ -756,6 +892,34 @@ export default function WorkflowSidebar({
                 className="h-8 text-xs"
                 min="1"
               />
+            </div>
+            <div>
+              <Label className="text-xs">Idade Máxima do Post</Label>
+              <div className="flex gap-2">
+                <Input
+                  type="number"
+                  value={monitorPostsParams.maxPostAge || 24}
+                  onChange={(e) => updateParams({ maxPostAge: parseInt(e.target.value) || 24 })}
+                  placeholder="24"
+                  className="h-8 text-xs flex-1"
+                  min="1"
+                />
+                <Select
+                  value={monitorPostsParams.maxPostAgeUnit || 'hours'}
+                  onValueChange={(value) => updateParams({ maxPostAgeUnit: value })}
+                >
+                  <SelectTrigger className="h-8 text-xs w-20">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="minutes">min</SelectItem>
+                    <SelectItem value="hours">h</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                Apenas posts feitos nos últimos {monitorPostsParams.maxPostAge || 24} {monitorPostsParams.maxPostAgeUnit === 'minutes' ? 'minutos' : 'horas'} serão processados
+              </p>
             </div>
           </div>
         );

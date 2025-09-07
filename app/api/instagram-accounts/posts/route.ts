@@ -225,6 +225,9 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const username = searchParams.get('username');
     const followedLikers = searchParams.get('followed_likers');
+    const maxAge = parseInt(searchParams.get('max_age') || '0');
+    const maxAgeUnit = searchParams.get('max_age_unit') || 'hours';
+    const maxAgeHours = parseInt(searchParams.get('max_age_hours') || '0'); // Compatibilidade
     const limit = parseInt(searchParams.get('limit') || '50');
     const offset = parseInt(searchParams.get('offset') || '0');
 
@@ -243,6 +246,24 @@ export async function GET(request: NextRequest) {
 
     if (followedLikers !== null) {
       query = query.eq('followed_likers', followedLikers === 'true');
+    }
+
+    // Filtrar por idade do post (se especificado)
+    let finalMaxAgeHours = maxAgeHours; // Para compatibilidade com parâmetro antigo
+    
+    if (maxAge > 0) {
+      // Converter para horas baseado na unidade
+      if (maxAgeUnit === 'minutes') {
+        finalMaxAgeHours = maxAge / 60;
+      } else {
+        finalMaxAgeHours = maxAge;
+      }
+    }
+    
+    if (finalMaxAgeHours > 0) {
+      const cutoffDate = new Date();
+      cutoffDate.setHours(cutoffDate.getHours() - finalMaxAgeHours);
+      query = query.gte('post_date', cutoffDate.toISOString());
     }
 
     const { data, error, count } = await query;

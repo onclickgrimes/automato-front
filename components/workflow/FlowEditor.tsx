@@ -569,7 +569,15 @@ export default function FlowEditor({ initialWorkflow, onSave }: FlowEditorProps)
       case 'monitorMessages':
         return { keywords: [] };
       case 'monitorPosts':
-        return { hashtags: [] };
+        return { 
+          hashtags: [], 
+          usernames: [],
+          checkInterval: 30000,
+          maxExecutions: 1,
+          maxPostsPerUser: 6,
+          maxPostAge: 24,
+          maxPostAgeUnit: 'hours'
+        };
       case 'delay':
         return { duration: 60000 }; // em milissegundos
       case 'startMessageProcessor':
