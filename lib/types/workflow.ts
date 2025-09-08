@@ -35,6 +35,7 @@ export interface UnfollowUserParams {
 export interface CommentParams {
   postId: string;
   comment: string;
+  commentByAI?: boolean;
 }
 
 export interface MonitorMessagesParams {
@@ -82,6 +83,7 @@ export interface WorkflowAction {
     postId?: string;
     username?: string;
     comment?: string;
+    commentByAI?: boolean;
     duration?: number; // em milissegundos
     caption?: string; // Para uploadPhoto
     imagePath?: string; // Para uploadPhoto - URL pública da imagem

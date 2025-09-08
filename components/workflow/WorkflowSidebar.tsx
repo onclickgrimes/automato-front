@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Trash2, Plus, ArrowDown, Variable } from 'lucide-react';
 import { actionConfig } from '@/lib/config/workflow-actions';
 import VariablePicker from './VariablePicker';
@@ -221,7 +222,7 @@ export default function WorkflowSidebar({
       case 'unfollowUser':
         return { username: '' };
       case 'comment':
-        return { postId: '', comment: '' };
+        return { postId: '', comment: '', commentByAI: false };
       case 'monitorMessages':
         return { keywords: [] };
       case 'monitorPosts':
@@ -578,15 +579,31 @@ export default function WorkflowSidebar({
                               <div className="text-xs text-gray-600 p-2 bg-green-50 rounded border border-green-200">
                                 ✓ URL do post será obtida automaticamente do item do loop
                               </div>
-                              <div>
-                                <Label className="text-xs">Comentário</Label>
-                                <Textarea
-                                  value={nestedAction.params.comment || ''}
-                                  onChange={(e) => updateNestedParams({ comment: e.target.value })}
-                                  placeholder="Ótimo post!"
-                                  className="text-xs min-h-[60px]"
+                              <div className="flex items-center space-x-2">
+                                <Checkbox
+                                  id={`nestedCommentByAI-${nestedIndex}`}
+                                  checked={nestedAction.params.commentByAI || false}
+                                  onCheckedChange={(checked) => updateNestedParams({ commentByAI: checked })}
                                 />
+                                <Label htmlFor={`nestedCommentByAI-${nestedIndex}`} className="text-xs">
+                                  Comentar via IA
+                                </Label>
                               </div>
+                              {nestedAction.params.commentByAI ? (
+                                <div className="text-xs text-blue-600 p-2 bg-blue-50 rounded border border-blue-200">
+                                  🤖 O vídeo será analisado e comentado automaticamente via IA
+                                </div>
+                              ) : (
+                                <div>
+                                  <Label className="text-xs">Comentário</Label>
+                                  <Textarea
+                                    value={nestedAction.params.comment || ''}
+                                    onChange={(e) => updateNestedParams({ comment: e.target.value })}
+                                    placeholder="Ótimo post!"
+                                    className="text-xs min-h-[60px]"
+                                  />
+                                </div>
+                              )}
                             </div>
                           );
                         
@@ -726,15 +743,31 @@ export default function WorkflowSidebar({
                 </div>
               )}
             </div>
-            <div>
-              <Label className="text-xs">Comentário</Label>
-              <Textarea
-                value={commentParams.comment || ''}
-                onChange={(e) => updateParams({ comment: e.target.value })}
-                placeholder="Seu comentário..."
-                className="h-16 text-xs resize-none"
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id={`commentByAI-${index}`}
+                checked={commentParams.commentByAI || false}
+                onCheckedChange={(checked) => updateParams({ commentByAI: checked })}
               />
+              <Label htmlFor={`commentByAI-${index}`} className="text-xs">
+                Comentar via IA
+              </Label>
             </div>
+            {commentParams.commentByAI ? (
+              <div className="text-xs text-blue-600 p-2 bg-blue-50 rounded border border-blue-200">
+                🤖 O vídeo será analisado e comentado automaticamente via IA
+              </div>
+            ) : (
+              <div>
+                <Label className="text-xs">Comentário</Label>
+                <Textarea
+                  value={commentParams.comment || ''}
+                  onChange={(e) => updateParams({ comment: e.target.value })}
+                  placeholder="Seu comentário..."
+                  className="h-16 text-xs resize-none"
+                />
+              </div>
+            )}
           </div>
         );
       
