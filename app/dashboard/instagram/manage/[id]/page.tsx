@@ -49,25 +49,25 @@ export default function InstagramControlPanel() {
   const [allAccounts, setAllAccounts] = useState<InstagramAccount[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
+
   // Estados de controle
   const [instanceStatus, setInstanceStatus] = useState<'active' | 'inactive' | 'unknown'>('unknown');
   const [isStarting, setIsStarting] = useState(false);
   const [isStopping, setIsStopping] = useState(false);
   const [isCheckingStatus, setIsCheckingStatus] = useState(false);
   const [isCheckingActive, setIsCheckingActive] = useState(false);
-  
+
   // Estados para edição de conta
   const [isEditingAccount, setIsEditingAccount] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showCookie, setShowCookie] = useState(false);
   const [editedAccount, setEditedAccount] = useState<Partial<InstagramAccount>>({});
-  
+
   // Estados para workflows favoritos
   const [favoriteWorkflows, setFavoriteWorkflows] = useState<WorkflowType[]>([]);
   const [workflowStatuses, setWorkflowStatuses] = useState<Record<string, 'running' | 'stopped'>>({});
   const [isLoadingWorkflows, setIsLoadingWorkflows] = useState(false);
-  
+
   // SSE Logs
   const { logs, isConnected: isSSEConnected, error: sseError, clearLogs } = useSSELogs(
     currentAccount?.username || '',
@@ -77,7 +77,7 @@ export default function InstagramControlPanel() {
   // Carregar dados iniciais
   useEffect(() => {
     loadInitialData();
-    
+
     const loadWorkflows = async () => {
       try {
         await loadFavoriteWorkflows();
@@ -85,7 +85,7 @@ export default function InstagramControlPanel() {
         console.error('Erro ao carregar workflows favoritos:', err);
       }
     };
-    
+
     loadWorkflows();
   }, [accountId]);
 
@@ -99,23 +99,23 @@ export default function InstagramControlPanel() {
   const loadInitialData = async () => {
     try {
       setIsLoading(true);
-      
+
       // Carregar todas as contas
       const accountsResponse = await fetch('/api/instagram-accounts');
       if (!accountsResponse.ok) {
         throw new Error('Erro ao carregar contas');
       }
-      
+
       const accountsResult = await accountsResponse.json();
       if (accountsResult.success) {
         setAllAccounts(accountsResult.data || []);
-        
+
         // Encontrar conta atual
         const current = accountsResult.data.find((acc: InstagramAccount) => acc.id === accountId);
         if (current) {
           setCurrentAccount(current);
           setEditedAccount(current);
-          
+
           // Verificar status inicial
           await checkInstanceStatus(current.username);
         } else {
@@ -135,17 +135,17 @@ export default function InstagramControlPanel() {
     try {
       setIsLoadingWorkflows(true);
       const supabase = createClient();
-      
+
       const { data, error } = await supabase
         .from('workflows')
         .select('*')
         .eq('favorite', true)
         .order('created_at', { ascending: false });
-      
+
       if (error) {
         throw error;
       }
-      
+
       const workflows = data?.map(record => record.workflow as WorkflowType) || [];
       setFavoriteWorkflows(workflows);
       return workflows.length;
@@ -160,7 +160,7 @@ export default function InstagramControlPanel() {
   const checkInstanceStatus = async (username: string) => {
     try {
       setIsCheckingStatus(true);
-      
+
       const response = await fetch(`${BACKEND_BASE_URL}/api/instagram/status/${username}`, {
         method: 'GET',
         headers: {
@@ -174,9 +174,9 @@ export default function InstagramControlPanel() {
 
       const result = await response.json();
       const isActive = result.success === true && result.status === 'active';
-      
+
       setInstanceStatus(isActive ? 'active' : 'inactive');
-      
+
       return isActive;
     } catch (err) {
       if (err instanceof TypeError && err.message.includes('fetch')) {
@@ -193,19 +193,18 @@ export default function InstagramControlPanel() {
 
   const startInstance = async () => {
     if (!currentAccount) return;
-    
+
     try {
       setIsStarting(true);
-      
+
       const body = {
         accountId: currentAccount.id,
         username: currentAccount.username,
         auth_type: currentAccount.auth_type,
-        ...(currentAccount.auth_type === 'credentials' 
-          ? { password: currentAccount.password } 
-          : { cookies: currentAccount.cookie })
+        password: currentAccount.password,
+        cookie: currentAccount.cookie
       };
-      
+
       const response = await fetch(`${BACKEND_BASE_URL}/api/instagram/iniciar`, {
         method: 'POST',
         headers: {
@@ -220,7 +219,7 @@ export default function InstagramControlPanel() {
       }
 
       const result = await response.json();
-      
+
       if (result.status === 'ok' || result.success) {
         setInstanceStatus('active');
       } else {
@@ -235,10 +234,10 @@ export default function InstagramControlPanel() {
 
   const stopInstance = async () => {
     if (!currentAccount) return;
-    
+
     try {
       setIsStopping(true);
-      
+
       const response = await fetch(`${BACKEND_BASE_URL}/api/instagram/parar/${currentAccount.username}`, {
         method: 'POST',
         headers: {
@@ -252,7 +251,7 @@ export default function InstagramControlPanel() {
       }
 
       const result = await response.json();
-      
+
       if (result.status === 'ok' || result.success) {
         setInstanceStatus('inactive');
       } else {
@@ -268,7 +267,7 @@ export default function InstagramControlPanel() {
   const checkActiveInstances = async () => {
     try {
       setIsCheckingActive(true);
-      
+
       const response = await fetch(`${BACKEND_BASE_URL}/api/instagram/ativos`, {
         method: 'GET',
         headers: {
@@ -281,7 +280,7 @@ export default function InstagramControlPanel() {
       }
 
       const result = await response.json();
-      
+
       // Apenas processa os dados sem adicionar logs manuais
       // Os logs virão automaticamente via SSE do backend
     } catch (err) {
@@ -299,7 +298,7 @@ export default function InstagramControlPanel() {
 
   const saveAccountChanges = async () => {
     if (!currentAccount || !editedAccount) return;
-    
+
     try {
       const response = await fetch(`/api/instagram-accounts/${currentAccount.id}`, {
         method: 'PUT',
@@ -308,11 +307,11 @@ export default function InstagramControlPanel() {
         },
         body: JSON.stringify(editedAccount)
       });
-      
+
       if (!response.ok) {
         throw new Error('Erro ao salvar alterações');
       }
-      
+
       const result = await response.json();
       if (result.success) {
         setCurrentAccount(result.data);
@@ -335,7 +334,7 @@ export default function InstagramControlPanel() {
   const startWorkflow = async (workflowId: string) => {
     try {
       setWorkflowStatuses(prev => ({ ...prev, [workflowId]: 'running' }));
-      
+
       const response = await fetch(`/api/workflows/${workflowId}/start`, {
         method: 'POST',
         headers: {
@@ -361,7 +360,7 @@ export default function InstagramControlPanel() {
   const stopWorkflow = async (workflowId: string) => {
     try {
       setWorkflowStatuses(prev => ({ ...prev, [workflowId]: 'stopped' }));
-      
+
       const response = await fetch(`/api/workflows/${workflowId}/stop`, {
         method: 'POST',
         headers: {
@@ -440,15 +439,15 @@ export default function InstagramControlPanel() {
       <div className="bg-white border-b border-gray-200 px-6 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
-            <Button 
-              variant="outline" 
-              size="sm" 
+            <Button
+              variant="outline"
+              size="sm"
               onClick={() => router.push('/dashboard/instagram')}
             >
               <ArrowLeft className="w-4 h-4 mr-2" />
               Voltar
             </Button>
-            
+
             {/* Dropdown de Contas */}
             <div className="flex items-center space-x-2">
               <span className="text-sm font-medium text-gray-700">Conta:</span>
@@ -468,7 +467,7 @@ export default function InstagramControlPanel() {
                     <SelectItem key={account.id} value={account.id}>
                       <div className="flex items-center justify-between w-full">
                         <span>@{account.username}</span>
-                        <Badge 
+                        <Badge
                           variant={account.auth_type === 'credentials' ? 'default' : 'secondary'}
                           className="ml-2"
                         >
@@ -481,12 +480,12 @@ export default function InstagramControlPanel() {
               </Select>
             </div>
           </div>
-          
+
           <div className="flex items-center space-x-2">
             {getStatusIcon()}
             <span className={`text-sm font-medium ${getStatusColor()}`}>
-              {instanceStatus === 'active' ? 'Instância Ativa' : 
-               instanceStatus === 'inactive' ? 'Instância Inativa' : 'Status Desconhecido'}
+              {instanceStatus === 'active' ? 'Instância Ativa' :
+                instanceStatus === 'inactive' ? 'Instância Inativa' : 'Status Desconhecido'}
             </span>
           </div>
         </div>
@@ -505,7 +504,7 @@ export default function InstagramControlPanel() {
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-2 gap-4">
-                <Button 
+                <Button
                   onClick={startInstance}
                   disabled={isStarting || instanceStatus === 'active'}
                   className="h-16 flex flex-col items-center justify-center space-y-1"
@@ -517,8 +516,8 @@ export default function InstagramControlPanel() {
                   )}
                   <span className="text-sm">Iniciar</span>
                 </Button>
-                
-                <Button 
+
+                <Button
                   onClick={stopInstance}
                   disabled={isStopping || instanceStatus === 'inactive'}
                   variant="destructive"
@@ -531,8 +530,8 @@ export default function InstagramControlPanel() {
                   )}
                   <span className="text-sm">Parar</span>
                 </Button>
-                
-                <Button 
+
+                <Button
                   onClick={() => currentAccount && checkInstanceStatus(currentAccount.username)}
                   disabled={isCheckingStatus}
                   variant="outline"
@@ -545,8 +544,8 @@ export default function InstagramControlPanel() {
                   )}
                   <span className="text-sm">Verificar Status</span>
                 </Button>
-                
-                <Button 
+
+                <Button
                   onClick={() => router.push('/dashboard/instagram/flows')}
                   variant="outline"
                   className="h-16 flex flex-col items-center justify-center space-y-1"
@@ -591,7 +590,7 @@ export default function InstagramControlPanel() {
                     <span className="text-sm text-gray-600">Username:</span>
                     <span className="font-medium">@{currentAccount.username}</span>
                   </div>
-                  
+
                   {/* Toggle de Tipo de Autenticação */}
                   <div className="space-y-2">
                     <Label className="text-sm text-gray-600">Tipo de Autenticação:</Label>
@@ -694,7 +693,7 @@ export default function InstagramControlPanel() {
                       )}
                     </div>
                   )}
-                  
+
                   <div className="flex justify-between">
                     <span className="text-sm text-gray-600">Status Login:</span>
                     <Badge variant={currentAccount.is_logged_in ? 'default' : 'destructive'}>
@@ -804,7 +803,7 @@ export default function InstagramControlPanel() {
                   const workflowId = workflow?.id || `workflow-${index}`;
                   const status = workflowStatuses[workflowId] || 'stopped';
                   const isRunning = status === 'running';
-                  
+
                   return (
                     <div key={workflowId} className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50 transition-colors">
                       <div className="flex-1">

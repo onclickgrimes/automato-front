@@ -628,7 +628,8 @@ export function InstagramAccountManager() {
             accountId: accountId,
             username: account.username,
             auth_type: account.auth_type,
-            ...(account.auth_type === 'credentials' ? { password: account.password } : { cookie: account.cookie })
+            password: account.password,
+            cookie: account.cookie
           })
         });
 
